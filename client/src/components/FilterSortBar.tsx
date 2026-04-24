@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { Keyword } from '../services/api';
+import { useI18n } from '../i18n/index.tsx';
 
 export interface FilterState {
   source: string;
@@ -33,57 +34,14 @@ interface FilterSortBarProps {
   keywords: Keyword[];
 }
 
-const SORT_OPTIONS = [
-  { value: 'createdAt', label: '最新发现', icon: Clock },
-  { value: 'publishedAt', label: '最新发布', icon: Clock },
-  { value: 'importance', label: '重要程度', icon: Flame },
-  { value: 'relevance', label: '相关性', icon: Target },
-  { value: 'hot', label: '热度综合', icon: TrendingUp },
-];
-
-const SOURCE_OPTIONS = [
-  { value: '', label: '全部来源' },
-  { value: 'twitter', label: 'Twitter' },
-  { value: 'bing', label: 'Bing' },
-  { value: 'google', label: 'Google' },
-  { value: 'sogou', label: '搜狗' },
-  { value: 'bilibili', label: 'Bilibili' },
-  { value: 'weibo', label: '微博热搜' },
-  { value: 'hackernews', label: 'HackerNews' },
-  { value: 'duckduckgo', label: 'DuckDuckGo' },
-];
-
-const IMPORTANCE_OPTIONS = [
-  { value: '', label: '全部等级' },
-  { value: 'urgent', label: '🔴 紧急', color: 'text-red-400' },
-  { value: 'high', label: '🟠 高', color: 'text-orange-400' },
-  { value: 'medium', label: '🟡 中', color: 'text-amber-400' },
-  { value: 'low', label: '🟢 低', color: 'text-emerald-400' },
-];
-
-const TIME_RANGE_OPTIONS = [
-  { value: '', label: '全部时间' },
-  { value: '1h', label: '最近 1 小时' },
-  { value: 'today', label: '今天' },
-  { value: '7d', label: '最近 7 天' },
-  { value: '30d', label: '最近 30 天' },
-];
-
-const REAL_OPTIONS = [
-  { value: '', label: '全部' },
-  { value: 'true', label: '✅ 真实' },
-  { value: 'false', label: '⚠️ 疑似虚假' },
-];
-
-// Dropdown component
-function Dropdown({ 
-  label, 
-  value, 
-  options, 
-  onChange 
-}: { 
-  label: string; 
-  value: string; 
+function Dropdown({
+  label,
+  value,
+  options,
+  onChange
+}: {
+  label: string;
+  value: string;
   options: { value: string; label: string; color?: string }[];
   onChange: (v: string) => void;
 }) {
@@ -142,6 +100,49 @@ function Dropdown({
 
 export default function FilterSortBar({ filters, onChange, keywords }: FilterSortBarProps) {
   const [showFilters, setShowFilters] = useState(false);
+  const { t } = useI18n();
+
+  const sortOpts = [
+    { value: 'createdAt', label: t.filters.latestFound, icon: Clock },
+    { value: 'publishedAt', label: t.filters.latestPublished, icon: Clock },
+    { value: 'importance', label: t.filters.importance, icon: Flame },
+    { value: 'relevance', label: t.filters.relevance, icon: Target },
+    { value: 'hot', label: t.filters.heatScore, icon: TrendingUp },
+  ];
+
+  const sourceOpts = [
+    { value: '', label: t.filters.allSources },
+    { value: 'twitter', label: 'Twitter' },
+    { value: 'bing', label: 'Bing' },
+    { value: 'google', label: 'Google' },
+    { value: 'sogou', label: t.sources.sogou },
+    { value: 'bilibili', label: t.sources.bilibili },
+    { value: 'weibo', label: t.sources.weibo },
+    { value: 'hackernews', label: t.sources.hackernews },
+    { value: 'duckduckgo', label: t.sources.duckduckgo },
+  ];
+
+  const importanceOpts = [
+    { value: '', label: t.filters.allLevels },
+    { value: 'urgent', label: `🔴 ${t.filters.urgent}`, color: 'text-red-400' },
+    { value: 'high', label: `🟠 ${t.filters.high}`, color: 'text-orange-400' },
+    { value: 'medium', label: `🟡 ${t.filters.medium}`, color: 'text-amber-400' },
+    { value: 'low', label: `🟢 ${t.filters.low}`, color: 'text-emerald-400' },
+  ];
+
+  const timeRangeOpts = [
+    { value: '', label: t.filters.allTime },
+    { value: '1h', label: t.filters.last1h },
+    { value: 'today', label: t.filters.today },
+    { value: '7d', label: t.filters.last7d },
+    { value: '30d', label: t.filters.last30d },
+  ];
+
+  const realOpts = [
+    { value: '', label: t.filters.all },
+    { value: 'true', label: `✅ ${t.filters.real}` },
+    { value: 'false', label: `⚠️ ${t.filters.suspectedFake}` },
+  ];
 
   const activeFilterCount = [
     filters.source,
@@ -162,18 +163,16 @@ export default function FilterSortBar({ filters, onChange, keywords }: FilterSor
   };
 
   const keywordOptions = [
-    { value: '', label: '全部关键词' },
+    { value: '', label: t.filters.allKeywords },
     ...keywords.filter(k => k.isActive).map(k => ({ value: k.id, label: k.text })),
   ];
 
   return (
     <div className="space-y-3">
-      {/* Main Bar: Sort + Filter Toggle */}
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Sort Selector */}
         <div className="flex items-center gap-1 bg-white/[0.03] rounded-xl border border-white/5 p-1">
           <ArrowUpDown className="w-3.5 h-3.5 text-slate-600 ml-2" />
-          {SORT_OPTIONS.map((opt) => {
+          {sortOpts.map((opt) => {
             const Icon = opt.icon;
             return (
               <button
@@ -193,7 +192,6 @@ export default function FilterSortBar({ filters, onChange, keywords }: FilterSor
           })}
         </div>
 
-        {/* Filter Toggle */}
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={cn(
@@ -204,7 +202,7 @@ export default function FilterSortBar({ filters, onChange, keywords }: FilterSor
           )}
         >
           <Filter className="w-3.5 h-3.5" />
-          筛选
+          {t.filters.filter}
           {activeFilterCount > 0 && (
             <span className="w-4 h-4 rounded-full bg-blue-500 text-[10px] text-white flex items-center justify-center font-bold">
               {activeFilterCount}
@@ -212,47 +210,45 @@ export default function FilterSortBar({ filters, onChange, keywords }: FilterSor
           )}
         </button>
 
-        {/* Reset */}
         {(activeFilterCount > 0 || hasNonDefaultSort) && (
           <button
             onClick={resetFilters}
             className="flex items-center gap-1 px-2.5 py-2 rounded-xl text-xs text-slate-500 hover:text-slate-300 transition-colors"
           >
             <RotateCcw className="w-3 h-3" />
-            重置
+            {t.filters.reset}
           </button>
         )}
 
-        {/* Active Filter Tags */}
         {activeFilterCount > 0 && !showFilters && (
           <div className="flex items-center gap-1.5 flex-wrap">
             {filters.source && (
               <FilterTag
-                label={SOURCE_OPTIONS.find(o => o.value === filters.source)?.label || filters.source}
+                label={sourceOpts.find(o => o.value === filters.source)?.label || filters.source}
                 onRemove={() => update('source', '')}
               />
             )}
             {filters.importance && (
               <FilterTag
-                label={IMPORTANCE_OPTIONS.find(o => o.value === filters.importance)?.label || filters.importance}
+                label={importanceOpts.find(o => o.value === filters.importance)?.label || filters.importance}
                 onRemove={() => update('importance', '')}
               />
             )}
             {filters.keywordId && (
               <FilterTag
-                label={keywords.find(k => k.id === filters.keywordId)?.text || '关键词'}
+                label={keywords.find(k => k.id === filters.keywordId)?.text || t.filters.keyword}
                 onRemove={() => update('keywordId', '')}
               />
             )}
             {filters.timeRange && (
               <FilterTag
-                label={TIME_RANGE_OPTIONS.find(o => o.value === filters.timeRange)?.label || filters.timeRange}
+                label={timeRangeOpts.find(o => o.value === filters.timeRange)?.label || filters.timeRange}
                 onRemove={() => update('timeRange', '')}
               />
             )}
             {filters.isReal && (
               <FilterTag
-                label={REAL_OPTIONS.find(o => o.value === filters.isReal)?.label || '真实性'}
+                label={realOpts.find(o => o.value === filters.isReal)?.label || t.filters.authenticity}
                 onRemove={() => update('isReal', '')}
               />
             )}
@@ -260,7 +256,6 @@ export default function FilterSortBar({ filters, onChange, keywords }: FilterSor
         )}
       </div>
 
-      {/* Expanded Filter Panel */}
       <AnimatePresence>
         {showFilters && (
           <motion.div
@@ -270,11 +265,11 @@ export default function FilterSortBar({ filters, onChange, keywords }: FilterSor
             transition={{ duration: 0.2 }}
           >
             <div className="flex items-center gap-2 flex-wrap p-3 rounded-xl bg-white/[0.02] border border-white/5">
-              <Dropdown label="来源" value={filters.source} options={SOURCE_OPTIONS} onChange={(v) => update('source', v)} />
-              <Dropdown label="重要程度" value={filters.importance} options={IMPORTANCE_OPTIONS} onChange={(v) => update('importance', v)} />
-              <Dropdown label="关键词" value={filters.keywordId} options={keywordOptions} onChange={(v) => update('keywordId', v)} />
-              <Dropdown label="时间" value={filters.timeRange} options={TIME_RANGE_OPTIONS} onChange={(v) => update('timeRange', v)} />
-              <Dropdown label="真实性" value={filters.isReal} options={REAL_OPTIONS} onChange={(v) => update('isReal', v)} />
+              <Dropdown label={t.filters.source} value={filters.source} options={sourceOpts} onChange={(v) => update('source', v)} />
+              <Dropdown label={t.filters.importance} value={filters.importance} options={importanceOpts} onChange={(v) => update('importance', v)} />
+              <Dropdown label={t.filters.keyword} value={filters.keywordId} options={keywordOptions} onChange={(v) => update('keywordId', v)} />
+              <Dropdown label={t.filters.time} value={filters.timeRange} options={timeRangeOpts} onChange={(v) => update('timeRange', v)} />
+              <Dropdown label={t.filters.authenticity} value={filters.isReal} options={realOpts} onChange={(v) => update('isReal', v)} />
             </div>
           </motion.div>
         )}
