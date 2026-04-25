@@ -1,5 +1,132 @@
 const API_BASE = '/api';
 
+// ─── Auth state (in-memory for security) ───
+let accessToken: string | null = null;
+
+export const setAccessToken = (token: string) => {
+  accessToken = token;
+  sessionStorage.setItem('accessToken', token);
+};
+
+export const clearAccessToken = () => {
+  accessToken = null;
+  sessionStorage.removeItem('accessToken');
+};
+
+export const getAccessToken = () => {
+  return accessToken || sessionStorage.getItem('accessToken');
+};
+
+// ─── Auth API ───
+export const authApi = {
+  githubLogin: () => {
+    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/auth/github`;
+  },
+
+  register: (data: { email: string; password: string; username: string }) => {
+    return fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    }).then(async (res) => {
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: 'Registration failed' }));
+        throw new Error(error.error || 'Registration failed');
+      }
+      return res.json();
+    });
+  },
+
+  emailLogin: (data: { email: string; password: string }) => {
+    return fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    }).then(async (res) => {
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: 'Login failed' }));
+        throw new Error(error.error || 'Login failed');
+      }
+      return res.json();
+    });
+  },
+
+  logout: async () => {
+    await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
+    clearAccessToken();
+  },
+
+  getMe: () => {
+    return fetch(`${API_BASE}/auth/me`, {
+      headers: { Authorization: `Bearer ${getAccessToken()}` },
+    }).then(async (res) => {
+      if (!res.ok) throw new Error('Not authenticated');
+      return res.json();
+    });
+  },
+
+  refresh: () => {
+    return fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    }).then(async (res) => {
+      if (!res.ok) throw new Error('Refresh failed');
+      return res.json();
+    });
+  },
+};
+
+// ─── Request helper with auto-refresh ───
+async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const token = getAccessToken();
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...((options.headers as Record<string, string>) || {}),
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  let response = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers,
+    credentials: 'include',
+  });
+
+  // Auto-refresh on 401
+  if (response.status === 401 && !options.headers?.['Authorization']) {
+    try {
+      const { accessToken: newToken } = await authApi.refresh();
+      setAccessToken(newToken);
+      headers['Authorization'] = `Bearer ${newToken}`;
+      response = await fetch(`${API_BASE}${endpoint}`, {
+        ...options,
+        headers,
+        credentials: 'include',
+      });
+    } catch {
+      clearAccessToken();
+      window.location.href = '/login';
+      throw new Error('Session expired');
+    }
+  }
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Request failed' }));
+    throw new Error(error.error || 'Request failed');
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return response.json();
+}
+
+// ─── Types ───
 export interface Keyword {
   id: string;
   text: string;
@@ -57,59 +184,46 @@ export interface Stats {
   bySource: Record<string, number>;
 }
 
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers
-    },
-    ...options
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(error.error || 'Request failed');
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json();
+export interface CurrentUser {
+  id: string;
+  username: string;
+  email: string | null;
+  avatar: string | null;
+  role: string;
 }
 
 // Keywords API
 export const keywordsApi = {
   getAll: () => request<Keyword[]>('/keywords'),
-  
+
   getById: (id: string) => request<Keyword>(`/keywords/${id}`),
-  
-  create: (data: { text: string; category?: string }) => 
+
+  create: (data: { text: string; category?: string }) =>
     request<Keyword>('/keywords', {
       method: 'POST',
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     }),
-  
-  update: (id: string, data: Partial<Keyword>) => 
+
+  update: (id: string, data: Partial<Keyword>) =>
     request<Keyword>(`/keywords/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     }),
-  
-  delete: (id: string) => 
+
+  delete: (id: string) =>
     request<void>(`/keywords/${id}`, { method: 'DELETE' }),
-  
-  toggle: (id: string) => 
-    request<Keyword>(`/keywords/${id}/toggle`, { method: 'PATCH' })
+
+  toggle: (id: string) =>
+    request<Keyword>(`/keywords/${id}/toggle`, { method: 'PATCH' }),
 };
 
 // Hotspots API
 export const hotspotsApi = {
-  getAll: (params?: { 
-    page?: number; 
-    limit?: number; 
-    source?: string; 
-    importance?: string; 
+  getAll: (params?: {
+    page?: number;
+    limit?: number;
+    source?: string;
+    importance?: string;
     keywordId?: string;
     isReal?: string;
     timeRange?: string;
@@ -128,19 +242,19 @@ export const hotspotsApi = {
       `/hotspots?${searchParams}`
     );
   },
-  
+
   getStats: () => request<Stats>('/hotspots/stats'),
-  
+
   getById: (id: string) => request<Hotspot>(`/hotspots/${id}`),
-  
-  search: (query: string, sources?: string[]) => 
+
+  search: (query: string, sources?: string[]) =>
     request<{ results: Hotspot[] }>('/hotspots/search', {
       method: 'POST',
-      body: JSON.stringify({ query, sources })
+      body: JSON.stringify({ query, sources }),
     }),
-  
-  delete: (id: string) => 
-    request<void>(`/hotspots/${id}`, { method: 'DELETE' })
+
+  delete: (id: string) =>
+    request<void>(`/hotspots/${id}`, { method: 'DELETE' }),
 };
 
 // Notifications API
@@ -156,31 +270,31 @@ export const notificationsApi = {
       `/notifications?${searchParams}`
     );
   },
-  
-  markAsRead: (id: string) => 
+
+  markAsRead: (id: string) =>
     request<Notification>(`/notifications/${id}/read`, { method: 'PATCH' }),
-  
-  markAllAsRead: () => 
+
+  markAllAsRead: () =>
     request<void>('/notifications/read-all', { method: 'PATCH' }),
-  
-  delete: (id: string) => 
+
+  delete: (id: string) =>
     request<void>(`/notifications/${id}`, { method: 'DELETE' }),
-  
-  clear: () => 
-    request<void>('/notifications', { method: 'DELETE' })
+
+  clear: () =>
+    request<void>('/notifications', { method: 'DELETE' }),
 };
 
 // Settings API
 export const settingsApi = {
   getAll: () => request<Record<string, string>>('/settings'),
-  
-  update: (settings: Record<string, string>) => 
+
+  update: (settings: Record<string, string>) =>
     request<void>('/settings', {
       method: 'PUT',
-      body: JSON.stringify(settings)
-    })
+      body: JSON.stringify(settings),
+    }),
 };
 
-// Manual trigger
-export const triggerHotspotCheck = () => 
+// Manual trigger (public endpoint)
+export const triggerHotspotCheck = () =>
   request<{ message: string }>('/check-hotspots', { method: 'POST' });

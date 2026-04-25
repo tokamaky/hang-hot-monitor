@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
@@ -10,6 +11,8 @@ import keywordsRouter from './routes/keywords.js';
 import hotspotsRouter from './routes/hotspots.js';
 import settingsRouter from './routes/settings.js';
 import notificationsRouter from './routes/notifications.js';
+import authRouter from './routes/auth.js';
+import { authMiddleware } from './middleware/auth.js';
 import { runHotspotCheck } from './jobs/hotspotChecker.js';
 
 dotenv.config();
@@ -24,14 +27,18 @@ const io = new Server(httpServer, {
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
 app.use(express.json());
+app.use(cookieParser());
 
-// Routes
-app.use('/api/keywords', keywordsRouter);
-app.use('/api/hotspots', hotspotsRouter);
-app.use('/api/settings', settingsRouter);
-app.use('/api/notifications', notificationsRouter);
+// Auth routes (public)
+app.use('/api/auth', authRouter);
+
+// Protected routes
+app.use('/api/keywords', authMiddleware, keywordsRouter);
+app.use('/api/hotspots', authMiddleware, hotspotsRouter);
+app.use('/api/settings', authMiddleware, settingsRouter);
+app.use('/api/notifications', authMiddleware, notificationsRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {

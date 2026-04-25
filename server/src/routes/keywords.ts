@@ -1,12 +1,17 @@
 import { Router } from 'express';
 import { prisma } from '../db.js';
+import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
 
-// 获取所有关键词
-router.get('/', async (req, res) => {
+// 所有关键词路由都需要认证
+router.use(authMiddleware);
+
+// 获取所有关键词（只获取当前用户的）
+router.get('/', async (req: AuthRequest, res) => {
   try {
     const keywords = await prisma.keyword.findMany({
+      where: { userId: req.userId },
       orderBy: { createdAt: 'desc' },
       include: {
         _count: {
@@ -22,10 +27,14 @@ router.get('/', async (req, res) => {
 });
 
 // 获取单个关键词
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req: AuthRequest, res) => {
+  const id = req.params.id as string;
   try {
-    const keyword = await prisma.keyword.findUnique({
-      where: { id: req.params.id },
+    const keyword = await prisma.keyword.findFirst({
+      where: {
+        id,
+        userId: req.userId
+      },
       include: {
         hotspots: {
           orderBy: { createdAt: 'desc' },
@@ -46,7 +55,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // 创建关键词
-router.post('/', async (req, res) => {
+router.post('/', async (req: AuthRequest, res) => {
   try {
     const { text, category } = req.body;
 
@@ -57,7 +66,8 @@ router.post('/', async (req, res) => {
     const keyword = await prisma.keyword.create({
       data: {
         text: text.trim(),
-        category: category?.trim() || null
+        category: category?.trim() || null,
+        userId: req.userId
       }
     });
 
@@ -72,12 +82,22 @@ router.post('/', async (req, res) => {
 });
 
 // 更新关键词
-router.put('/:id', async (req, res) => {
+router.put('/:id', async (req: AuthRequest, res) => {
+  const id = req.params.id as string;
   try {
     const { text, category, isActive } = req.body;
 
+    // 先检查关键词是否属于当前用户
+    const existing = await prisma.keyword.findFirst({
+      where: { id, userId: req.userId }
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Keyword not found' });
+    }
+
     const keyword = await prisma.keyword.update({
-      where: { id: req.params.id },
+      where: { id },
       data: {
         ...(text && { text: text.trim() }),
         ...(category !== undefined && { category: category?.trim() || null }),
@@ -96,10 +116,20 @@ router.put('/:id', async (req, res) => {
 });
 
 // 删除关键词
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req: AuthRequest, res) => {
+  const id = req.params.id as string;
   try {
+    // 先检查关键词是否属于当前用户
+    const existing = await prisma.keyword.findFirst({
+      where: { id, userId: req.userId }
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Keyword not found' });
+    }
+
     await prisma.keyword.delete({
-      where: { id: req.params.id }
+      where: { id }
     });
 
     res.status(204).send();
@@ -113,10 +143,11 @@ router.delete('/:id', async (req, res) => {
 });
 
 // 切换关键词状态
-router.patch('/:id/toggle', async (req, res) => {
+router.patch('/:id/toggle', async (req: AuthRequest, res) => {
+  const id = req.params.id as string;
   try {
-    const keyword = await prisma.keyword.findUnique({
-      where: { id: req.params.id }
+    const keyword = await prisma.keyword.findFirst({
+      where: { id, userId: req.userId }
     });
 
     if (!keyword) {
@@ -124,7 +155,7 @@ router.patch('/:id/toggle', async (req, res) => {
     }
 
     const updated = await prisma.keyword.update({
-      where: { id: req.params.id },
+      where: { id },
       data: { isActive: !keyword.isActive }
     });
 

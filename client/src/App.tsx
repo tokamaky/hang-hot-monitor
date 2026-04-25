@@ -7,11 +7,12 @@ import {
   ChevronLeft, ChevronRight,
   MessageCircle, Repeat2, Quote, User, Shield, ShieldAlert,
   ChevronDown, ChevronUp, ChevronsUpDown, ThermometerSun, FileText, Languages,
-  Rss, Tag, BarChart3
+  Rss, Tag, BarChart3, LogOut
 } from 'lucide-react';
 import {
   keywordsApi, hotspotsApi, notificationsApi, triggerHotspotCheck,
-  type Keyword, type Hotspot, type Stats, type Notification
+  type Keyword, type Hotspot, type Stats, type Notification, type CurrentUser,
+  authApi, setAccessToken, clearAccessToken
 } from './services/api';
 import { onNewHotspot, onNotification, subscribeToKeywords } from './services/socket';
 import { cn } from './lib/utils';
@@ -22,6 +23,11 @@ import FilterSortBar, { defaultFilterState, type FilterState } from './component
 import { sortHotspots } from './utils/sortHotspots';
 import { relativeTime, formatDateTime } from './utils/relativeTime';
 import { useI18n } from './i18n/index.tsx';
+import Login from './pages/Login';
+
+interface LoginProps {
+  onSuccess: (token: string, user: CurrentUser) => void;
+}
 
 function calcHeatScore(h: Hotspot): number {
   const likes = h.likeCount ?? 0;
@@ -57,6 +63,56 @@ function App() {
   const [expandedContents, setExpandedContents] = useState<Set<string>>(new Set());
   const [allReasonsExpanded, setAllReasonsExpanded] = useState(false);
   const { t, language, toggleLanguage } = useI18n();
+
+  // ─── Auth state ───
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  // Check for token from OAuth callback URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const tokenFromUrl = urlParams.get('token');
+  const errorFromUrl = urlParams.get('error');
+
+  // If token in URL, store it and clear the URL
+  useEffect(() => {
+    if (tokenFromUrl) {
+      setAccessToken(tokenFromUrl);
+      // Clean URL without refresh
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    if (errorFromUrl) {
+      setLoginError(errorFromUrl);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [tokenFromUrl, errorFromUrl]);
+
+  // Verify token and load user on mount
+  useEffect(() => {
+    const token = sessionStorage.getItem('accessToken');
+    if (token) {
+      setAccessToken(token);
+      authApi.getMe()
+        .then((user) => {
+          setCurrentUser(user);
+        })
+        .catch(() => {
+          clearAccessToken();
+        })
+        .finally(() => setAuthLoading(false));
+    } else {
+      setAuthLoading(false);
+    }
+  }, []);
+
+  const handleLogin = () => {
+    authApi.githubLogin();
+  };
+
+  const handleLogout = async () => {
+    await authApi.logout();
+    setCurrentUser(null);
+  };
 
   function getHeatLevel(score: number): { label: string; color: string } {
     if (score >= 80) return { label: t.heat.explosive, color: 'text-red-400' };
@@ -285,6 +341,26 @@ function App() {
     return labels[source] || source;
   };
 
+  // ─── Auth guard ───
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#05050f]">
+        <div className="relative w-10 h-10">
+          <div className="absolute inset-0 rounded-full border-2 border-violet-500/20" />
+          <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-violet-500 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <Login error={loginError || undefined} onLogin={handleLogin} onSuccess={(token, user) => {
+      setAccessToken(token);
+      setCurrentUser(user);
+      setLoginError(null);
+    }} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#05050f] relative overflow-hidden">
 
@@ -352,6 +428,32 @@ function App() {
                 <Languages className="w-3.5 h-3.5" />
                 {language === 'en' ? '中文' : 'EN'}
               </button>
+
+              {/* User avatar + logout */}
+              <div className="flex items-center gap-1.5 pl-1">
+                {currentUser.avatar ? (
+                  <img
+                    src={currentUser.avatar}
+                    alt={currentUser.username}
+                    className="w-7 h-7 rounded-full"
+                  />
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-violet-600 flex items-center justify-center">
+                    <User className="w-3.5 h-3.5 text-white" />
+                  </div>
+                )}
+                <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
+                  {currentUser.username}
+                </span>
+                <button
+                  onClick={handleLogout}
+                  className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 transition-all duration-200"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
+                  title="Logout"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
 
               <motion.button
                 onClick={handleManualCheck}
