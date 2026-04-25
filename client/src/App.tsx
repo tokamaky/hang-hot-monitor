@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Flame, Search, Plus, Bell, Trash2, 
+import {
+  Flame, Search, Plus, Bell, Trash2,
   ExternalLink, RefreshCw, X, Check, AlertTriangle,
   Zap, TrendingUp, Twitter, Globe, Eye, Activity, Clock, Target,
   ChevronLeft, ChevronRight,
   MessageCircle, Repeat2, Quote, User, Shield, ShieldAlert,
-  ChevronDown, ChevronUp, ChevronsUpDown, ThermometerSun, FileText, Languages
+  ChevronDown, ChevronUp, ChevronsUpDown, ThermometerSun, FileText, Languages,
+  Rss, Tag, BarChart3
 } from 'lucide-react';
-import { 
+import {
   keywordsApi, hotspotsApi, notificationsApi, triggerHotspotCheck,
   type Keyword, type Hotspot, type Stats, type Notification
 } from './services/api';
@@ -21,9 +22,7 @@ import FilterSortBar, { defaultFilterState, type FilterState } from './component
 import { sortHotspots } from './utils/sortHotspots';
 import { relativeTime, formatDateTime } from './utils/relativeTime';
 import { useI18n } from './i18n/index.tsx';
-// TextGenerateEffect available for future use
 
-/** 计算热度综合指标（归一化 0-100） */
 function calcHeatScore(h: Hotspot): number {
   const likes = h.likeCount ?? 0;
   const retweets = h.retweetCount ?? 0;
@@ -31,9 +30,7 @@ function calcHeatScore(h: Hotspot): number {
   const comments = h.commentCount ?? 0;
   const quotes = h.quoteCount ?? 0;
   const views = h.viewCount ?? 0;
-  // 加权公式：转发最重、其次点赞、然后评论/回复
   const raw = likes * 2 + retweets * 3 + replies * 1.5 + comments * 1.5 + quotes * 2 + views / 100;
-  // log 压缩到 0-100
   if (raw <= 0) return 0;
   return Math.min(100, Math.round(Math.log10(raw + 1) * 25));
 }
@@ -44,7 +41,6 @@ function App() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  
   const [newKeyword, setNewKeyword] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -57,7 +53,6 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchResults, setSearchResults] = useState<Hotspot[]>([]);
-  // 展开/折叠状态
   const [expandedReasons, setExpandedReasons] = useState<Set<string>>(new Set());
   const [expandedContents, setExpandedContents] = useState<Set<string>>(new Set());
   const [allReasonsExpanded, setAllReasonsExpanded] = useState(false);
@@ -71,7 +66,24 @@ function App() {
     return { label: t.heat.cold, color: 'text-slate-500' };
   }
 
-  // 加载数据
+  function getImportanceAccent(importance: string): string {
+    switch (importance) {
+      case 'urgent': return 'accent-urgent';
+      case 'high': return 'accent-high';
+      case 'medium': return 'accent-medium';
+      default: return 'accent-low';
+    }
+  }
+
+  function getImportanceColor(importance: string): { bg: string; text: string; border: string; dot: string } {
+    switch (importance) {
+      case 'urgent': return { bg: 'bg-red-500/12', text: 'text-red-400', border: 'border-red-500/20', dot: 'bg-red-400' };
+      case 'high': return { bg: 'bg-purple-500/12', text: 'text-purple-400', border: 'border-purple-500/20', dot: 'bg-purple-400' };
+      case 'medium': return { bg: 'bg-amber-500/12', text: 'text-amber-400', border: 'border-amber-500/20', dot: 'bg-amber-400' };
+      default: return { bg: 'bg-emerald-500/12', text: 'text-emerald-400', border: 'border-emerald-500/20', dot: 'bg-emerald-400' };
+    }
+  }
+
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -79,7 +91,6 @@ function App() {
         limit: 20,
         page: currentPage,
       };
-      // Apply dashboard filters
       if (dashboardFilters.source) filterParams.source = dashboardFilters.source;
       if (dashboardFilters.importance) filterParams.importance = dashboardFilters.importance;
       if (dashboardFilters.keywordId) filterParams.keywordId = dashboardFilters.keywordId;
@@ -100,8 +111,6 @@ function App() {
       setStats(statsData);
       setNotifications(notifData.data);
       setUnreadCount(notifData.unreadCount);
-
-      // 订阅关键词
       const activeKeywords = keywordsData.filter(k => k.isActive).map(k => k.text);
       if (activeKeywords.length > 0) {
         subscribeToKeywords(activeKeywords);
@@ -113,43 +122,27 @@ function App() {
     }
   }, [dashboardFilters, currentPage]);
 
-  // 当筛选条件变化时重置页码
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [dashboardFilters]);
+  useEffect(() => { setCurrentPage(1); }, [dashboardFilters]);
+  useEffect(() => { loadData(); }, [loadData]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  // WebSocket 事件
   useEffect(() => {
     const unsubHotspot = onNewHotspot((hotspot) => {
       setHotspots(prev => [hotspot as Hotspot, ...prev.slice(0, 19)]);
       showToast(`${t.notifications.newHotspot}: ` + hotspot.title.slice(0, 30), 'success');
       loadData();
     });
-
-    const unsubNotif = onNotification(() => {
-      setUnreadCount(prev => prev + 1);
-    });
-
-    return () => {
-      unsubHotspot();
-      unsubNotif();
-    };
+    const unsubNotif = onNotification(() => { setUnreadCount(prev => prev + 1); });
+    return () => { unsubHotspot(); unsubNotif(); };
   }, [loadData, t.notifications.newHotspot]);
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 3500);
   };
 
-  // 添加关键词
   const handleAddKeyword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newKeyword.trim()) return;
-
     try {
       const keyword = await keywordsApi.create({ text: newKeyword.trim() });
       setKeywords(prev => [keyword, ...prev]);
@@ -161,7 +154,6 @@ function App() {
     }
   };
 
-  // 删除关键词
   const handleDeleteKeyword = async (id: string) => {
     try {
       await keywordsApi.delete(id);
@@ -172,7 +164,6 @@ function App() {
     }
   };
 
-  // 切换关键词状态
   const handleToggleKeyword = async (id: string) => {
     try {
       const updated = await keywordsApi.toggle(id);
@@ -182,11 +173,9 @@ function App() {
     }
   };
 
-  // 手动搜索
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
-
     setIsLoading(true);
     try {
       const result = await hotspotsApi.search(searchQuery);
@@ -199,7 +188,6 @@ function App() {
     }
   };
 
-  // 手动触发检查
   const handleManualCheck = async () => {
     setIsChecking(true);
     try {
@@ -213,18 +201,14 @@ function App() {
     }
   };
 
-  // 标记通知为已读
   const handleMarkAllRead = async () => {
     try {
       await notificationsApi.markAllAsRead();
       setUnreadCount(0);
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-    } catch (error) {
-      console.error('Failed to mark as read:', error);
-    }
+    } catch (error) { console.error('Failed to mark as read:', error); }
   };
 
-  // 展开/折叠相关性理由
   const toggleReason = (id: string) => {
     setExpandedReasons(prev => {
       const next = new Set(prev);
@@ -233,7 +217,6 @@ function App() {
     });
   };
 
-  // 展开/折叠原始内容
   const toggleContent = (id: string) => {
     setExpandedContents(prev => {
       const next = new Set(prev);
@@ -242,7 +225,6 @@ function App() {
     });
   };
 
-  // 一键展开/折叠所有相关性理由
   const toggleAllReasons = (list: Hotspot[]) => {
     if (allReasonsExpanded) {
       setExpandedReasons(new Set());
@@ -252,25 +234,13 @@ function App() {
     setAllReasonsExpanded(!allReasonsExpanded);
   };
 
-  // Client-side filtering/sorting for search results
   const filteredSearchResults = useMemo(() => {
     let results = [...searchResults];
-
-    // Apply filters
-    if (searchFilters.source) {
-      results = results.filter(h => h.source === searchFilters.source);
-    }
-    if (searchFilters.importance) {
-      results = results.filter(h => h.importance === searchFilters.importance);
-    }
-    if (searchFilters.isReal === 'true') {
-      results = results.filter(h => h.isReal);
-    } else if (searchFilters.isReal === 'false') {
-      results = results.filter(h => !h.isReal);
-    }
-    if (searchFilters.keywordId) {
-      results = results.filter(h => h.keyword?.id === searchFilters.keywordId);
-    }
+    if (searchFilters.source) results = results.filter(h => h.source === searchFilters.source);
+    if (searchFilters.importance) results = results.filter(h => h.importance === searchFilters.importance);
+    if (searchFilters.isReal === 'true') results = results.filter(h => h.isReal);
+    else if (searchFilters.isReal === 'false') results = results.filter(h => !h.isReal);
+    if (searchFilters.keywordId) results = results.filter(h => h.keyword?.id === searchFilters.keywordId);
     if (searchFilters.timeRange) {
       const now = new Date();
       let dateFrom: Date | null = null;
@@ -280,122 +250,123 @@ function App() {
         case '7d': dateFrom = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); break;
         case '30d': dateFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); break;
       }
-      if (dateFrom) {
-        results = results.filter(h => new Date(h.createdAt) >= dateFrom!);
-      }
+      if (dateFrom) results = results.filter(h => new Date(h.createdAt) >= dateFrom!);
     }
-
-    // Apply sorting using shared utility
     results = sortHotspots(results, searchFilters.sortBy || 'createdAt', (searchFilters.sortOrder || 'desc') as 'asc' | 'desc');
-
     return results;
   }, [searchResults, searchFilters]);
 
   const getImportanceIcon = (importance: string) => {
     switch (importance) {
-      case 'urgent': return <AlertTriangle className="w-4 h-4" />;
-      case 'high': return <Flame className="w-4 h-4" />;
-      case 'medium': return <Zap className="w-4 h-4" />;
-      default: return <TrendingUp className="w-4 h-4" />;
+      case 'urgent': return <AlertTriangle className="w-3.5 h-3.5" />;
+      case 'high': return <Flame className="w-3.5 h-3.5" />;
+      case 'medium': return <Zap className="w-3.5 h-3.5" />;
+      default: return <TrendingUp className="w-3.5 h-3.5" />;
     }
   };
 
   const getSourceIcon = (source: string) => {
     switch (source) {
-      case 'twitter': return <Twitter className="w-4 h-4" />;
-      case 'bilibili': return <Eye className="w-4 h-4" />;
-      case 'weibo': return <Activity className="w-4 h-4" />;
-      case 'sogou': return <Search className="w-4 h-4" />;
-      case 'hackernews': return <Zap className="w-4 h-4" />;
-      default: return <Globe className="w-4 h-4" />;
+      case 'twitter': return <Twitter className="w-3.5 h-3.5" />;
+      case 'bilibili': return <Eye className="w-3.5 h-3.5" />;
+      case 'weibo': return <Activity className="w-3.5 h-3.5" />;
+      case 'sogou': return <Search className="w-3.5 h-3.5" />;
+      case 'hackernews': return <Zap className="w-3.5 h-3.5" />;
+      default: return <Globe className="w-3.5 h-3.5" />;
     }
   };
 
   const getSourceLabel = (source: string) => {
     const labels: Record<string, string> = {
-      twitter: t.sources.twitter,
-      bing: t.sources.bing,
-      google: t.sources.google,
-      sogou: t.sources.sogou,
-      bilibili: t.sources.bilibili,
-      weibo: t.sources.weibo,
-      hackernews: t.sources.hackernews,
-      duckduckgo: t.sources.duckduckgo
+      twitter: t.sources.twitter, bing: t.sources.bing, google: t.sources.google,
+      sogou: t.sources.sogou, bilibili: t.sources.bilibili, weibo: t.sources.weibo,
+      hackernews: t.sources.hackernews, duckduckgo: t.sources.duckduckgo
     };
     return labels[source] || source;
   };
 
   return (
-    <div className="min-h-screen bg-[#050510] relative overflow-hidden">
-      {/* Background Effects */}
-      <BackgroundBeams className="z-0" />
-      <Spotlight className="-top-40 left-0 md:left-60 md:-top-20" fill="#3b82f6" />
-      
-      {/* Subtle gradient orbs */}
-      <div className="fixed top-0 right-0 w-[600px] h-[600px] bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
-      <div className="fixed bottom-0 left-0 w-[400px] h-[400px] bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#05050f] relative overflow-hidden">
+
+      {/* Background */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-0 left-1/4 w-[700px] h-[700px] rounded-full"
+          style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.06) 0%, transparent 70%)' }} />
+        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full"
+          style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.05) 0%, transparent 70%)' }} />
+        <div className="absolute inset-0"
+          style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+      </div>
+      <Spotlight className="-top-40 left-0 md:left-60 md:-top-20" fill="#7c3aed" />
 
       {/* Toast */}
       <AnimatePresence>
         {toast && (
           <motion.div
-            initial={{ opacity: 0, y: -20, x: '-50%' }}
-            animate={{ opacity: 1, y: 0, x: '-50%' }}
-            exit={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -16, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -16, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             className={cn(
-              "fixed top-6 left-1/2 z-50 px-5 py-3 rounded-xl backdrop-blur-xl flex items-center gap-3 shadow-2xl",
-              toast.type === 'success' 
-                ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' 
-                : 'bg-red-500/10 border border-red-500/30 text-red-400'
+              "fixed top-5 left-1/2 -translate-x-1/2 z-[100] px-5 py-3 rounded-xl flex items-center gap-3 shadow-2xl backdrop-blur-xl",
+              toast.type === 'success'
+                ? 'bg-emerald-500/15 border border-emerald-500/25 text-emerald-400'
+                : 'bg-red-500/15 border border-red-500/25 text-red-400'
             )}
           >
-            {toast.type === 'success' ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+            {toast.type === 'success' ? <Check className="w-4 h-4 shrink-0" /> : <X className="w-4 h-4 shrink-0" />}
             <span className="text-sm font-medium">{toast.message}</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Header - Minimal & Clean */}
-      <header className="sticky top-0 z-40 backdrop-blur-2xl bg-[#050510]/70 border-b border-white/5">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+      {/* Header */}
+      <header className="sticky top-0 z-40 backdrop-blur-2xl"
+        style={{ background: 'rgba(5, 5, 15, 0.8)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <div className="max-w-5xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
+
             {/* Logo */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3.5">
               <div className="relative">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                  <Flame className="w-5 h-5 text-white" />
+                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-500 flex items-center justify-center shadow-lg"
+                  style={{ boxShadow: '0 4px 20px rgba(124, 58, 237, 0.3)' }}>
+                  <Flame className="w-4.5 h-4.5 text-white" />
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#050510] animate-pulse" />
+                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-[#05050f] animate-pulse" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-white tracking-tight">{t.app.title}</h1>
-                <p className="text-xs text-slate-500">{t.app.subtitle}</p>
+                <h1 className="text-base font-semibold text-white tracking-tight leading-none">{t.app.title}</h1>
+                <p className="text-[11px] text-slate-500 mt-0.5">{t.app.subtitle}</p>
               </div>
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={toggleLanguage}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 transition-all text-slate-400 hover:text-white"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium text-slate-400 hover:text-white transition-all duration-200"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
                 title={language === 'en' ? 'Switch to Chinese' : 'Switch to English'}
               >
-                <Languages className="w-4 h-4" />
-                <span className="text-xs font-medium">{language === 'en' ? '中文' : 'EN'}</span>
+                <Languages className="w-3.5 h-3.5" />
+                {language === 'en' ? '中文' : 'EN'}
               </button>
+
               <motion.button
                 onClick={handleManualCheck}
                 disabled={isChecking}
                 whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                whileTap={{ scale: 0.97 }}
                 className={cn(
-                  "px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-all",
-                  isChecking 
-                    ? "bg-blue-500/20 text-blue-400 cursor-wait"
-                    : "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40"
+                  "flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-medium transition-all duration-200",
+                  isChecking
+                    ? "text-violet-400 cursor-wait"
+                    : "text-white shadow-lg"
                 )}
+                style={!isChecking ? { background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)', boxShadow: '0 4px 16px rgba(124,58,237,0.3)' } : { background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}
               >
-                <RefreshCw className={cn("w-4 h-4", isChecking && "animate-spin")} />
+                <RefreshCw className={cn("w-3.5 h-3.5", isChecking && "animate-spin")} />
                 {isChecking ? t.header.scanning : t.header.scanNow}
               </motion.button>
 
@@ -403,41 +374,49 @@ function App() {
               <div className="relative">
                 <button
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className="relative p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 transition-all"
+                  className="relative p-2 rounded-lg transition-all duration-200"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
                 >
-                  <Bell className="w-5 h-5 text-slate-400" />
+                  <Bell className="w-4 h-4 text-slate-400" />
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-[10px] font-bold flex items-center justify-center text-white">
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute -top-1 -right-1 w-4.5 h-4.5 bg-red-500 rounded-full text-[9px] font-bold flex items-center justify-center text-white"
+                    >
                       {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
+                    </motion.span>
                   )}
                 </button>
 
                 <AnimatePresence>
                   {showNotifications && (
                     <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                      initial={{ opacity: 0, y: 8, scale: 0.97 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                      className="absolute right-0 top-14 w-80 bg-[#0a0a1a]/95 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden"
+                      exit={{ opacity: 0, y: 8, scale: 0.97 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 top-11 w-80 rounded-xl overflow-hidden"
+                      style={{ background: 'rgba(9, 9, 26, 0.95)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
                     >
-                      <div className="flex items-center justify-between p-4 border-b border-white/5">
-                        <h3 className="font-medium text-white">{t.header.notifications}</h3>
+                      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <h3 className="text-sm font-medium text-white">{t.header.notifications}</h3>
                         {unreadCount > 0 && (
-                          <button onClick={handleMarkAllRead} className="text-xs text-blue-400 hover:text-blue-300">
+                          <button onClick={handleMarkAllRead} className="text-[11px] text-violet-400 hover:text-violet-300 font-medium">
                             {t.header.markAllRead}
                           </button>
                         )}
                       </div>
-                      <div className="max-h-80 overflow-y-auto">
+                      <div className="max-h-72 overflow-y-auto">
                         {notifications.length === 0 ? (
-                          <p className="text-slate-500 text-sm text-center py-8">{t.header.noNotifications}</p>
+                          <p className="text-slate-500 text-sm text-center py-10">{t.header.noNotifications}</p>
                         ) : (
-                          <div className="divide-y divide-white/5">
+                          <div>
                             {notifications.slice(0, 5).map(n => (
-                              <div key={n.id} className={cn("p-4 transition-colors", n.isRead ? 'opacity-50' : 'hover:bg-white/5')}>
-                                <p className="text-sm font-medium text-white">{n.title}</p>
-                                <p className="text-xs text-slate-500 mt-1 line-clamp-2">{n.content}</p>
+                              <div key={n.id} className={cn("px-4 py-3 transition-colors", !n.isRead ? 'hover:bg-white/[0.03]' : 'opacity-40')}
+                                style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                <p className="text-[13px] font-medium text-white leading-snug">{n.title}</p>
+                                <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">{n.content}</p>
                               </div>
                             ))}
                           </div>
@@ -453,142 +432,200 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="relative z-10 max-w-6xl mx-auto px-6 py-8">
-        {/* Navigation Tabs */}
-        <div className="flex gap-2 mb-8">
+      <main className="relative z-10 max-w-5xl mx-auto px-6 py-7">
+
+        {/* Tab Navigation */}
+        <div className="flex items-center gap-1.5 mb-8 p-1 rounded-xl w-fit"
+          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
           {([
-            { key: 'dashboard', label: t.tabs.dashboard, icon: Activity },
-            { key: 'keywords', label: t.tabs.keywords, icon: Target },
+            { key: 'dashboard', label: t.tabs.dashboard, icon: Rss },
+            { key: 'keywords', label: t.tabs.keywords, icon: Tag },
             { key: 'search', label: t.tabs.search, icon: Search },
           ] as const).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
               className={cn(
-                "px-5 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-all",
-                activeTab === key 
-                  ? 'bg-white/10 text-white border border-white/10' 
-                  : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                "relative flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium transition-all duration-200",
+                activeTab === key ? 'text-white' : 'text-slate-500 hover:text-slate-300'
               )}
+              style={activeTab === key ? { background: 'rgba(124,58,237,0.2)', boxShadow: '0 0 16px rgba(124,58,237,0.15)' } : {}}
             >
-              <Icon className="w-4 h-4" />
-              {label}
+              {activeTab === key && (
+                <motion.div
+                  layoutId="activeTab"
+                  className="absolute inset-0 rounded-lg"
+                  style={{ background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)' }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                />
+              )}
+              <Icon className="w-3.5 h-3.5 relative z-10" />
+              <span className="relative z-10">{label}</span>
             </button>
           ))}
         </div>
 
         {/* Dashboard Tab */}
         {activeTab === 'dashboard' && (
-          <div className="space-y-8">
-            {/* Hero Stats */}
+          <div className="space-y-6 animate-fade-up">
+
+            {/* Stats Grid */}
             {stats && (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="relative group p-5 rounded-2xl bg-gradient-to-br from-blue-500/10 to-transparent border border-blue-500/10 overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="relative">
-                    <div className="flex items-center gap-2 text-slate-500 text-sm mb-2">
-                      <Activity className="w-4 h-4" />
-                      {t.dashboard.totalHotspots}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* Total */}
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}
+                  className="group relative p-4 rounded-xl overflow-hidden"
+                  style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-5"
+                    style={{ background: 'radial-gradient(circle, #7c3aed, transparent)', transform: 'translate(30%, -30%)' }} />
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wider mb-2">{t.dashboard.totalHotspots}</p>
+                      <p className="text-2xl font-bold text-white">{stats.total}</p>
                     </div>
-                    <p className="text-3xl font-bold text-white">{stats.total}</p>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center mt-0.5"
+                      style={{ background: 'rgba(124,58,237,0.15)' }}>
+                      <BarChart3 className="w-4 h-4 text-violet-400" />
+                    </div>
+                  </div>
+                  {/* Mini sparkline */}
+                  <div className="flex items-end gap-0.5 mt-3 h-6">
+                    {[40, 55, 45, 70, 60, 80, 65].map((h, i) => (
+                      <div key={i} className="w-1.5 rounded-sm transition-all" style={{ height: `${h}%`, background: 'rgba(124,58,237,0.3)', opacity: i === 6 ? 1 : 0.5 }} />
+                    ))}
                   </div>
                 </motion.div>
 
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.05 }}
-                  className="relative group p-5 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-transparent border border-cyan-500/10 overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="relative">
-                    <div className="flex items-center gap-2 text-slate-500 text-sm mb-2">
-                      <Clock className="w-4 h-4" />
-                      {t.dashboard.todayNew}
+                {/* Today */}
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+                  className="group relative p-4 rounded-xl overflow-hidden"
+                  style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-5"
+                    style={{ background: 'radial-gradient(circle, #06b6d4, transparent)', transform: 'translate(30%, -30%)' }} />
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wider mb-2">{t.dashboard.todayNew}</p>
+                      <p className="text-2xl font-bold" style={{ color: '#06b6d4' }}>{stats.today}</p>
                     </div>
-                    <p className="text-3xl font-bold text-cyan-400">{stats.today}</p>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center mt-0.5"
+                      style={{ background: 'rgba(6,182,212,0.12)' }}>
+                      <Clock className="w-4 h-4 text-cyan-400" />
+                    </div>
+                  </div>
+                  <div className="flex items-end gap-0.5 mt-3 h-6">
+                    {[20, 35, 25, 45, 30, 50, 40].map((h, i) => (
+                      <div key={i} className="w-1.5 rounded-sm" style={{ height: `${h}%`, background: 'rgba(6,182,212,0.3)', opacity: i === 6 ? 1 : 0.5 }} />
+                    ))}
                   </div>
                 </motion.div>
 
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className="relative group p-5 rounded-2xl bg-gradient-to-br from-red-500/10 to-transparent border border-red-500/10 overflow-hidden"
-                >
-                  <Meteors number={6} />
-                  <div className="relative">
-                    <div className="flex items-center gap-2 text-slate-500 text-sm mb-2">
-                      <AlertTriangle className="w-4 h-4" />
-                      {t.dashboard.urgentHotspots}
+                {/* Urgent */}
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                  className="group relative p-4 rounded-xl overflow-hidden"
+                  style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.12)' }}>
+                  <Meteors number={4} />
+                  <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-5"
+                    style={{ background: 'radial-gradient(circle, #ef4444, transparent)', transform: 'translate(30%, -30%)' }} />
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wider mb-2">{t.dashboard.urgentHotspots}</p>
+                      <p className="text-2xl font-bold text-red-400">{stats.urgent}</p>
                     </div>
-                    <p className="text-3xl font-bold text-red-400">{stats.urgent}</p>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center mt-0.5"
+                      style={{ background: 'rgba(239,68,68,0.12)' }}>
+                      <AlertTriangle className="w-4 h-4 text-red-400" />
+                    </div>
+                  </div>
+                  <div className="flex items-end gap-0.5 mt-3 h-6">
+                    {[30, 20, 45, 35, 25, 40, 55].map((h, i) => (
+                      <div key={i} className="w-1.5 rounded-sm" style={{ height: `${h}%`, background: 'rgba(239,68,68,0.3)', opacity: i === 6 ? 1 : 0.5 }} />
+                    ))}
                   </div>
                 </motion.div>
 
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.15 }}
-                  className="relative group p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-transparent border border-emerald-500/10 overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="relative">
-                    <div className="flex items-center gap-2 text-slate-500 text-sm mb-2">
-                      <Target className="w-4 h-4" />
-                      {t.dashboard.monitorKeywords}
+                {/* Keywords */}
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                  className="group relative p-4 rounded-xl overflow-hidden"
+                  style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-5"
+                    style={{ background: 'radial-gradient(circle, #10b981, transparent)', transform: 'translate(30%, -30%)' }} />
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wider mb-2">{t.dashboard.monitorKeywords}</p>
+                      <p className="text-2xl font-bold text-emerald-400">{keywords.filter(k => k.isActive).length}</p>
                     </div>
-                    <p className="text-3xl font-bold text-emerald-400">{keywords.filter(k => k.isActive).length}</p>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center mt-0.5"
+                      style={{ background: 'rgba(16,185,129,0.12)' }}>
+                      <Target className="w-4 h-4 text-emerald-400" />
+                    </div>
+                  </div>
+                  <div className="flex items-end gap-0.5 mt-3 h-6">
+                    {[10, 15, 10, 20, 15, 25, 20].map((h, i) => (
+                      <div key={i} className="w-1.5 rounded-sm" style={{ height: `${h}%`, background: 'rgba(16,185,129,0.3)', opacity: i === 6 ? 1 : 0.5 }} />
+                    ))}
                   </div>
                 </motion.div>
               </div>
             )}
 
-            {/* Hotspots Feed */}
+            {/* Feed Section */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Flame className="w-5 h-5 text-orange-500" />
-                  {t.dashboard.realtimeStream}
-                </h2>
-                <span className="text-xs text-slate-600">{t.dashboard.autoUpdate}</span>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+                    style={{ background: 'rgba(249,115,22,0.15)' }}>
+                    <Flame className="w-3.5 h-3.5 text-orange-400" />
+                  </div>
+                  <h2 className="text-sm font-semibold text-white">{t.dashboard.realtimeStream}</h2>
+                </div>
+                <span className="text-[11px] text-slate-600">{t.dashboard.autoUpdate}</span>
               </div>
 
-              {/* Filter & Sort Bar */}
-              <div className="mb-5">
-                <FilterSortBar
-                  filters={dashboardFilters}
-                  onChange={setDashboardFilters}
-                  keywords={keywords}
-                />
-              </div>
-              
-              {isLoading ? (
-                <div className="flex items-center justify-center py-16">
-                  <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-                </div>
-              ) : hotspots.length === 0 ? (
-                <div className="text-center py-16 rounded-2xl border border-dashed border-white/10">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
-                    <Search className="w-8 h-8 text-slate-600" />
+              <FilterSortBar
+                filters={dashboardFilters}
+                onChange={setDashboardFilters}
+                keywords={keywords}
+              />
+
+              {/* Loading */}
+              {isLoading && (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <div className="relative w-12 h-12">
+                    <div className="absolute inset-0 rounded-full border-2 border-violet-500/20" />
+                    <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-violet-500 animate-spin" />
                   </div>
-                  <p className="text-slate-500">{t.dashboard.noHotspots}</p>
-                  <p className="text-sm text-slate-600 mt-1">{t.dashboard.noHotspotsHint}</p>
+                  <p className="text-sm text-slate-500">Loading hotspots...</p>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {/* 一键展开/折叠所有理由 */}
+              )}
+
+              {/* Empty State */}
+              {!isLoading && hotspots.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 gap-4 rounded-xl"
+                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.07)' }}>
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.1)' }}>
+                    <svg className="w-8 h-8 text-violet-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0-18 0" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4M12 16h.01" />
+                    </svg>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-slate-400">{t.dashboard.noHotspots}</p>
+                    <p className="text-xs text-slate-600 mt-1">{t.dashboard.noHotspotsHint}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Hotspot List */}
+              {!isLoading && hotspots.length > 0 && (
+                <div className="space-y-2.5 mt-3">
                   {hotspots.some(h => h.relevanceReason) && (
                     <div className="flex justify-end">
                       <button
                         onClick={() => toggleAllReasons(hotspots)}
-                        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-400 transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5"
+                        className="flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-violet-400 transition-colors px-2.5 py-1.5 rounded-lg"
+                        style={{ background: 'rgba(255,255,255,0.02)' }}
                       >
-                        <ChevronsUpDown className="w-3.5 h-3.5" />
+                        <ChevronsUpDown className="w-3 h-3" />
                         {allReasonsExpanded ? t.dashboard.collapseAll : t.dashboard.expandAll}
                       </button>
                     </div>
@@ -597,196 +634,194 @@ function App() {
                   {hotspots.map((hotspot, index) => {
                     const heatScore = calcHeatScore(hotspot);
                     const heat = getHeatLevel(heatScore);
+                    const impColor = getImportanceColor(hotspot.importance);
+                    const accentClass = getImportanceAccent(hotspot.importance);
                     return (
                     <motion.div
                       key={hotspot.id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.03 }}
-                      className="group p-5 rounded-2xl bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 hover:border-white/10 transition-all"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.025 }}
+                      className="group rounded-xl overflow-hidden transition-all duration-200"
+                      style={{
+                        background: 'rgba(255,255,255,0.025)',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                      }}
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          {/* Row 1: Meta badges */}
-                          <div className="flex flex-wrap items-center gap-2 mb-3">
-                            <span className={cn(
-                              "px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider flex items-center",
-                              hotspot.importance === 'urgent' && "bg-red-500/15 text-red-400 border border-red-500/20",
-                              hotspot.importance === 'high' && "bg-orange-500/15 text-orange-400 border border-orange-500/20",
-                              hotspot.importance === 'medium' && "bg-amber-500/15 text-amber-400 border border-amber-500/20",
-                              hotspot.importance === 'low' && "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
-                            )}>
-                              {getImportanceIcon(hotspot.importance)}
-                              <span className="ml-1">{t.importance[hotspot.importance as keyof typeof t.importance]}</span>
-                            </span>
-                            <span className="flex items-center gap-1 text-xs text-slate-600">
-                              {getSourceIcon(hotspot.source)}
-                              {getSourceLabel(hotspot.source)}
-                            </span>
-                            {hotspot.keyword && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                {hotspot.keyword.text}
-                              </span>
-                            )}
-                            {/* 真实性标记 */}
-                            {!hotspot.isReal && (
-                              <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-red-500/10 text-red-400 border border-red-500/20">
-                                <ShieldAlert className="w-3 h-3" />
-                                {t.dashboard.suspicious}
-                              </span>
-                            )}
-                            {hotspot.isReal && hotspot.relevance >= 80 && (
-                              <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                <Shield className="w-3 h-3" />
-                                {t.dashboard.trusted}
-                              </span>
-                            )}
-                            {hotspot.keywordMentioned === true && (
-                              <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                                <Target className="w-3 h-3" />
-                                {t.dashboard.directMention}
-                              </span>
-                            )}
-                            {hotspot.keywordMentioned === false && (
-                              <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
-                                <Target className="w-3 h-3" />
-                                {t.dashboard.indirectRelated}
-                              </span>
-                            )}
-                            {/* 热度综合指标 */}
-                            <span className={cn("flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-white/5 border border-white/10 font-medium", heat.color)}>
-                              <ThermometerSun className="w-3 h-3" />
-                              {heat.label} {heatScore}
-                            </span>
+                      {/* Importance top bar */}
+                      <div className="h-0.5 w-full" style={{
+                        background: hotspot.importance === 'urgent' ? 'linear-gradient(90deg, #ef4444, transparent)' :
+                          hotspot.importance === 'high' ? 'linear-gradient(90deg, #a855f7, transparent)' :
+                          hotspot.importance === 'medium' ? 'linear-gradient(90deg, #f59e0b, transparent)' :
+                          'linear-gradient(90deg, #10b981, transparent)'
+                      }} />
+
+                      <div className="p-4">
+                        <div className="flex items-start gap-3">
+                          {/* Importance badge */}
+                          <div className={cn("shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wide", impColor.bg, impColor.text)}>
+                            {getImportanceIcon(hotspot.importance)}
+                            <span>{t.importance[hotspot.importance as keyof typeof t.importance]}</span>
                           </div>
-                          
-                          {/* Title */}
-                          <h3 className="font-medium text-white mb-2 line-clamp-2 group-hover:text-blue-400 transition-colors">
-                            {hotspot.title}
-                          </h3>
-                          
-                          {/* AI Summary - 标注 */}
-                          {hotspot.summary && (
-                            <div className="mb-3">
-                              <span className="text-[10px] text-blue-400/60 font-medium mr-1.5">{t.dashboard.aiSummary}</span>
-                              <span className="text-sm text-slate-500">{hotspot.summary}</span>
-                            </div>
+
+                          {/* Source */}
+                          <div className="flex items-center gap-1 text-[11px] text-slate-500">
+                            {getSourceIcon(hotspot.source)}
+                            <span>{getSourceLabel(hotspot.source)}</span>
+                          </div>
+
+                          {/* Keyword */}
+                          {hotspot.keyword && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-md font-medium"
+                              style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}>
+                              {hotspot.keyword.text}
+                            </span>
                           )}
 
-                          {/* 作者信息 */}
-                          {hotspot.authorName && (
-                            <div className="flex items-center gap-2 mb-3">
-                              {hotspot.authorAvatar ? (
-                                <img src={hotspot.authorAvatar} alt="" className="w-5 h-5 rounded-full object-cover" />
-                              ) : (
-                                <User className="w-4 h-4 text-slate-600" />
-                              )}
-                              <span className="text-xs text-slate-400">
-                                {hotspot.authorName}
-                                {hotspot.authorUsername && <span className="text-slate-600 ml-1">@{hotspot.authorUsername}</span>}
-                              </span>
-                              {hotspot.authorVerified && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400">✓ {t.dashboard.verified}</span>
-                              )}
-                              {hotspot.authorFollowers != null && hotspot.authorFollowers > 0 && (
-                                <span className="text-[10px] text-slate-600">{hotspot.authorFollowers.toLocaleString()} {t.dashboard.followers}</span>
-                              )}
-                            </div>
+                          {/* Authenticity */}
+                          {!hotspot.isReal && (
+                            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-medium"
+                              style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.15)' }}>
+                              <ShieldAlert className="w-3 h-3" />
+                              {t.dashboard.suspicious}
+                            </span>
                           )}
-                          
-                          {/* 互动数据 */}
-                          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 mb-2">
+                          {hotspot.isReal && hotspot.relevance >= 80 && (
+                            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-medium"
+                              style={{ background: 'rgba(16,185,129,0.1)', color: '#34d399', border: '1px solid rgba(16,185,129,0.15)' }}>
+                              <Shield className="w-3 h-3" />
+                              {t.dashboard.trusted}
+                            </span>
+                          )}
+
+                          {/* Mention */}
+                          {hotspot.keywordMentioned === true && (
+                            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-medium"
+                              style={{ background: 'rgba(168,85,247,0.1)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.15)' }}>
+                              <Target className="w-3 h-3" />
+                              {t.dashboard.directMention}
+                            </span>
+                          )}
+                          {hotspot.keywordMentioned === false && (
+                            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-medium"
+                              style={{ background: 'rgba(245,158,11,0.1)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.15)' }}>
+                              <Target className="w-3 h-3" />
+                              {t.dashboard.indirectRelated}
+                            </span>
+                          )}
+
+                          {/* Heat */}
+                          <span className={cn("flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-medium border", heat.color, "bg-white/5 border-white/10")}>
+                            <ThermometerSun className="w-3 h-3" />
+                            {heat.label} {heatScore}
+                          </span>
+
+                          {/* Spacer */}
+                          <div className="flex-1" />
+
+                          {/* External Link */}
+                          <a
+                            href={hotspot.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 p-1.5 rounded-lg text-slate-600 hover:text-violet-400 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                            style={{ background: 'rgba(255,255,255,0.04)' }}
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="mt-2.5 font-medium text-[14px] text-white leading-snug group-hover:text-violet-300 transition-colors line-clamp-2">
+                          {hotspot.title}
+                        </h3>
+
+                        {/* AI Summary */}
+                        {hotspot.summary && (
+                          <p className="mt-1.5 text-[12px] text-slate-500 leading-relaxed line-clamp-2">{hotspot.summary}</p>
+                        )}
+
+                        {/* Author */}
+                        {hotspot.authorName && (
+                          <div className="flex items-center gap-2 mt-2">
+                            {hotspot.authorAvatar ? (
+                              <img src={hotspot.authorAvatar} alt="" className="w-5 h-5 rounded-full object-cover" />
+                            ) : (
+                              <User className="w-4 h-4 text-slate-600" />
+                            )}
+                            <span className="text-[11px] text-slate-400">{hotspot.authorName}</span>
+                            {hotspot.authorUsername && <span className="text-[11px] text-slate-600">@{hotspot.authorUsername}</span>}
+                            {hotspot.authorVerified && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                                style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa' }}>Verified</span>
+                            )}
+                            {hotspot.authorFollowers != null && hotspot.authorFollowers > 0 && (
+                              <span className="text-[11px] text-slate-600">{hotspot.authorFollowers.toLocaleString()} {t.dashboard.followers}</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Stats Row */}
+                        <div className="flex items-center gap-3 mt-2.5 text-[11px] text-slate-600">
+                          <span className="flex items-center gap-1 font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                            <Target className="w-3 h-3" />
+                            {hotspot.relevance}% {t.dashboard.relevance}
+                          </span>
+                          {hotspot.likeCount != null && hotspot.likeCount > 0 && (
+                            <span className="flex items-center gap-1"><Zap className="w-3 h-3" />{hotspot.likeCount.toLocaleString()}</span>
+                          )}
+                          {hotspot.retweetCount != null && hotspot.retweetCount > 0 && (
+                            <span className="flex items-center gap-1"><Repeat2 className="w-3 h-3" />{hotspot.retweetCount.toLocaleString()}</span>
+                          )}
+                          {hotspot.replyCount != null && hotspot.replyCount > 0 && (
+                            <span className="flex items-center gap-1"><MessageCircle className="w-3 h-3" />{hotspot.replyCount.toLocaleString()}</span>
+                          )}
+                          {hotspot.viewCount != null && hotspot.viewCount > 0 && (
+                            <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{hotspot.viewCount.toLocaleString()}</span>
+                          )}
+                          {hotspot.danmakuCount != null && hotspot.danmakuCount > 0 && (
+                            <span className="flex items-center gap-1">{'💬'} {hotspot.danmakuCount.toLocaleString()}</span>
+                          )}
+                        </div>
+
+                        {/* Time */}
+                        <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-600">
+                          {hotspot.publishedAt && (
                             <span className="flex items-center gap-1">
-                              <Target className="w-3.5 h-3.5" />
-                              {t.dashboard.relevance} {hotspot.relevance}%
+                              <Clock className="w-3 h-3" />
+                              {relativeTime(hotspot.publishedAt)}
                             </span>
-                            {hotspot.likeCount != null && hotspot.likeCount > 0 && (
-                              <span className="flex items-center gap-1" title={t.dashboard.likes}>
-                                <Zap className="w-3.5 h-3.5" />
-                                {hotspot.likeCount.toLocaleString()}
-                              </span>
-                            )}
-                            {hotspot.retweetCount != null && hotspot.retweetCount > 0 && (
-                              <span className="flex items-center gap-1" title={t.dashboard.retweets}>
-                                <Repeat2 className="w-3.5 h-3.5" />
-                                {hotspot.retweetCount.toLocaleString()}
-                              </span>
-                            )}
-                            {hotspot.replyCount != null && hotspot.replyCount > 0 && (
-                              <span className="flex items-center gap-1" title={t.dashboard.replies}>
-                                <MessageCircle className="w-3.5 h-3.5" />
-                                {hotspot.replyCount.toLocaleString()}
-                              </span>
-                            )}
-                            {hotspot.commentCount != null && hotspot.commentCount > 0 && (
-                              <span className="flex items-center gap-1" title={t.dashboard.comments}>
-                                <MessageCircle className="w-3.5 h-3.5" />
-                                {hotspot.commentCount.toLocaleString()}
-                              </span>
-                            )}
-                            {hotspot.quoteCount != null && hotspot.quoteCount > 0 && (
-                              <span className="flex items-center gap-1" title={t.dashboard.quotes}>
-                                <Quote className="w-3.5 h-3.5" />
-                                {hotspot.quoteCount.toLocaleString()}
-                              </span>
-                            )}
-                            {hotspot.viewCount != null && hotspot.viewCount > 0 && (
-                              <span className="flex items-center gap-1" title={t.dashboard.views}>
-                                <Eye className="w-3.5 h-3.5" />
-                                {hotspot.viewCount.toLocaleString()}
-                              </span>
-                            )}
-                            {hotspot.danmakuCount != null && hotspot.danmakuCount > 0 && (
-                              <span className="flex items-center gap-1" title={t.dashboard.danmaku}>
-                                💬 {hotspot.danmakuCount.toLocaleString()}
-                              </span>
-                            )}
-                          </div>
+                          )}
+                          <span className="flex items-center gap-1">
+                            <Activity className="w-3 h-3" />
+                            {relativeTime(hotspot.createdAt)}
+                          </span>
+                        </div>
 
-                          {/* 时间信息 */}
-                          <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600">
-                            {hotspot.publishedAt && (
-                              <span className="flex items-center gap-1" title={`Published ${formatDateTime(hotspot.publishedAt)}`}>
-                                <Clock className="w-3 h-3" />
-                                {t.dashboard.published} {relativeTime(hotspot.publishedAt)}
-                              </span>
-                            )}
-                            <span className="flex items-center gap-1" title={`Scraped ${formatDateTime(hotspot.createdAt)}`}>
-                              <Activity className="w-3 h-3" />
-                              {t.dashboard.scraped} {relativeTime(hotspot.createdAt)}
-                            </span>
-                          </div>
-
-                          {/* AI 相关性理由 - 可折叠 */}
-                          {hotspot.relevanceReason && (
-                            <div className="mt-2">
+                        {/* Expandable Sections */}
+                        {(hotspot.relevanceReason || (hotspot.content && hotspot.content !== hotspot.summary)) && (
+                          <div className="mt-2 space-y-1">
+                            {hotspot.relevanceReason && (
                               <button
                                 onClick={() => toggleReason(hotspot.id)}
-                                className="flex items-center gap-1 text-[11px] text-blue-400/70 hover:text-blue-400 transition-colors"
+                                className="flex items-center gap-1 text-[11px] text-violet-400/70 hover:text-violet-400 transition-colors"
                               >
                                 {expandedReasons.has(hotspot.id) ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                                 {t.dashboard.aiReason}
                               </button>
-                              <AnimatePresence>
-                                {expandedReasons.has(hotspot.id) && (
-                                  <motion.div
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: 'auto', opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    className="overflow-hidden"
-                                  >
-                                    <p className="text-xs text-slate-500 mt-1 pl-4 border-l-2 border-blue-500/20">
-                                      {hotspot.relevanceReason}
-                                    </p>
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            </div>
-                          )}
+                            )}
+                            <AnimatePresence>
+                              {expandedReasons.has(hotspot.id) && hotspot.relevanceReason && (
+                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
+                                  <p className="text-[11px] text-slate-500 pl-4 leading-relaxed mt-1"
+                                    style={{ borderLeft: '2px solid rgba(124,58,237,0.2)' }}>
+                                    {hotspot.relevanceReason}
+                                  </p>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
 
-                          {/* 原始内容 - 可折叠 */}
-                          {hotspot.content && hotspot.content !== hotspot.summary && (
-                            <div className="mt-2">
+                            {hotspot.content && hotspot.content !== hotspot.summary && (
                               <button
                                 onClick={() => toggleContent(hotspot.id)}
                                 className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
@@ -795,34 +830,19 @@ function App() {
                                 <FileText className="w-3 h-3" />
                                 {t.dashboard.originalContent}
                               </button>
-                              <AnimatePresence>
-                                {expandedContents.has(hotspot.id) && (
-                                  <motion.div
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: 'auto', opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    className="overflow-hidden"
-                                  >
-                                    <p className="text-xs text-slate-500 mt-1 pl-4 border-l-2 border-white/10 whitespace-pre-wrap break-words max-h-40 overflow-y-auto">
-                                      {hotspot.content}
-                                    </p>
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Link */}
-                        <a
-                          href={hotspot.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="p-2.5 rounded-xl bg-white/5 hover:bg-blue-500/20 text-slate-500 hover:text-blue-400 transition-all opacity-0 group-hover:opacity-100"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
+                            )}
+                            <AnimatePresence>
+                              {expandedContents.has(hotspot.id) && hotspot.content && (
+                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
+                                  <p className="text-[11px] text-slate-500 pl-4 leading-relaxed mt-1 whitespace-pre-wrap break-words max-h-36 overflow-y-auto"
+                                    style={{ borderLeft: '2px solid rgba(255,255,255,0.08)' }}>
+                                    {hotspot.content}
+                                  </p>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                     );
@@ -832,36 +852,33 @@ function App() {
 
               {/* Pagination */}
               {totalPages > 1 && !isLoading && (
-                <div className="flex items-center justify-center gap-3 mt-6">
+                <div className="flex items-center justify-center gap-2 mt-6">
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage <= 1}
-                    className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="p-2 rounded-lg text-slate-500 hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1">
                     {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
                       let page: number;
-                      if (totalPages <= 7) {
-                        page = i + 1;
-                      } else if (currentPage <= 4) {
-                        page = i + 1;
-                      } else if (currentPage >= totalPages - 3) {
-                        page = totalPages - 6 + i;
-                      } else {
-                        page = currentPage - 3 + i;
-                      }
+                      if (totalPages <= 7) page = i + 1;
+                      else if (currentPage <= 4) page = i + 1;
+                      else if (currentPage >= totalPages - 3) page = totalPages - 6 + i;
+                      else page = currentPage - 3 + i;
                       return (
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
                           className={cn(
-                            "w-8 h-8 rounded-lg text-xs font-medium transition-all",
+                            "w-8 h-8 rounded-lg text-[12px] font-medium transition-all",
                             currentPage === page
-                              ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                              : "text-slate-500 hover:text-white hover:bg-white/5"
+                              ? "text-white"
+                              : "text-slate-500 hover:text-white"
                           )}
+                          style={currentPage === page ? { background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(124,58,237,0.3)' } : {}}
                         >
                           {page}
                         </button>
@@ -871,11 +888,12 @@ function App() {
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage >= totalPages}
-                    className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="p-2 rounded-lg text-slate-500 hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
-                  <span className="text-xs text-slate-600 ml-2">
+                  <span className="text-[11px] text-slate-600 ml-1">
                     {t.pagination.of} {stats?.total || 0} {t.pagination.total}
                   </span>
                 </div>
@@ -886,96 +904,91 @@ function App() {
 
         {/* Keywords Tab */}
         {activeTab === 'keywords' && (
-          <div className="space-y-6">
-            {/* Add Keyword Card */}
-            <form onSubmit={handleAddKeyword} className="p-5 rounded-2xl bg-white/[0.02] border border-white/5">
-              <div className="flex gap-3">
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    value={newKeyword}
-                    onChange={(e) => setNewKeyword(e.target.value)}
-                    placeholder={t.keywords.addPlaceholder}
-                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  />
-                </div>
-                <motion.button 
-                  type="submit" 
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-medium flex items-center gap-2 shadow-lg shadow-blue-500/25"
-                >
-                  <Plus className="w-4 h-4" />
-                  {t.keywords.add}
-                </motion.button>
-              </div>
+          <div className="space-y-5 animate-fade-up">
+            {/* Add Form */}
+            <form onSubmit={handleAddKeyword} className="p-4 rounded-xl flex gap-3"
+              style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <input
+                type="text"
+                value={newKeyword}
+                onChange={(e) => setNewKeyword(e.target.value)}
+                placeholder={t.keywords.addPlaceholder}
+                className="flex-1 bg-transparent text-[13px] text-white placeholder-slate-600 outline-none"
+              />
+              <motion.button
+                type="submit"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-medium text-white"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #6366f1)', boxShadow: '0 2px 12px rgba(124,58,237,0.25)' }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {t.keywords.add}
+              </motion.button>
             </form>
 
             {/* Keywords Grid */}
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-2.5 md:grid-cols-2">
               <AnimatePresence>
                 {keywords.map((keyword, i) => (
                   <motion.div
                     key={keyword.id}
                     layout
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ delay: i * 0.02 }}
-                    className={cn(
-                      "group p-4 rounded-xl border transition-all",
-                      keyword.isActive 
-                        ? "bg-white/[0.03] border-blue-500/20 hover:border-blue-500/30" 
-                        : "bg-white/[0.01] border-white/5 opacity-60"
-                    )}
+                    className="group flex items-center justify-between p-3.5 rounded-xl transition-all duration-200"
+                    style={{
+                      background: keyword.isActive ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.015)',
+                      border: `1px solid ${keyword.isActive ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.05)'}`,
+                    }}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {/* Toggle */}
-                        <button
-                          onClick={() => handleToggleKeyword(keyword.id)}
-                          className={cn(
-                            "w-11 h-6 rounded-full transition-all relative",
-                            keyword.isActive ? "bg-blue-500" : "bg-slate-700"
-                          )}
-                        >
-                          <span className={cn(
-                            "absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all",
-                            keyword.isActive ? "left-6" : "left-1"
-                          )} />
-                        </button>
-                        
-                        <div>
-                          <span className={cn("font-medium", keyword.isActive ? "text-white" : "text-slate-500")}>
-                            {keyword.text}
-                          </span>
-                          {keyword._count && keyword._count.hotspots > 0 && (
-                            <span className="ml-2 text-xs text-slate-600">
-                              {keyword._count.hotspots} {t.keywords.keywordsCount}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      
+                    <div className="flex items-center gap-3">
                       <button
-                        onClick={() => handleDeleteKeyword(keyword.id)}
-                        className="p-2 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
+                        onClick={() => handleToggleKeyword(keyword.id)}
+                        className={cn(
+                          "w-9 h-5 rounded-full transition-all relative shrink-0",
+                          keyword.isActive ? "bg-violet-600" : "bg-slate-700"
+                        )}
+                        style={keyword.isActive ? { boxShadow: '0 0 10px rgba(124,58,237,0.3)' } : {}}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <span className={cn(
+                          "absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all",
+                          keyword.isActive ? "left-4" : "left-0.5"
+                        )} />
                       </button>
+                      <div>
+                        <span className={cn("text-[13px] font-medium", keyword.isActive ? "text-white" : "text-slate-500")}>
+                          {keyword.text}
+                        </span>
+                        {keyword._count && keyword._count.hotspots > 0 && (
+                          <span className="ml-2 text-[11px] text-slate-600">{keyword._count.hotspots} {t.keywords.keywordsCount}</span>
+                        )}
+                      </div>
                     </div>
+                    <button
+                      onClick={() => handleDeleteKeyword(keyword.id)}
+                      className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                      style={{ background: 'rgba(239,68,68,0.08)' }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </motion.div>
                 ))}
               </AnimatePresence>
             </div>
 
             {keywords.length === 0 && (
-              <div className="text-center py-16 rounded-2xl border border-dashed border-white/10">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
-                  <Target className="w-8 h-8 text-slate-600" />
+              <div className="flex flex-col items-center justify-center py-20 gap-4 rounded-xl"
+                style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.07)' }}>
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.1)' }}>
+                  <Target className="w-8 h-8 text-violet-400" />
                 </div>
-                <p className="text-slate-500">{t.keywords.noKeywords}</p>
-                <p className="text-sm text-slate-600 mt-1">{t.keywords.noKeywordsHint}</p>
+                <div className="text-center">
+                  <p className="text-sm font-medium text-slate-400">{t.keywords.noKeywords}</p>
+                  <p className="text-xs text-slate-600 mt-1">{t.keywords.noKeywordsHint}</p>
+                </div>
               </div>
             )}
           </div>
@@ -983,140 +996,160 @@ function App() {
 
         {/* Search Tab */}
         {activeTab === 'search' && (
-          <div className="space-y-6">
+          <div className="space-y-5 animate-fade-up">
             {/* Search Form */}
-            <form onSubmit={handleSearch} className="p-5 rounded-2xl bg-white/[0.02] border border-white/5">
-              <div className="flex gap-3">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={t.search.placeholder}
-                    className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  />
-                </div>
-                <motion.button 
-                  type="submit" 
-                  disabled={isLoading}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-medium flex items-center gap-2 shadow-lg shadow-blue-500/25 disabled:opacity-50"
-                >
-                  {isLoading ? (
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <Search className="w-4 h-4" />
-                  )}
-                  {t.search.searchBtn}
-                </motion.button>
-              </div>
+            <form onSubmit={handleSearch} className="p-4 rounded-xl flex gap-3"
+              style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <Search className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t.search.placeholder}
+                className="flex-1 bg-transparent text-[13px] text-white placeholder-slate-600 outline-none"
+              />
+              <motion.button
+                type="submit"
+                disabled={isLoading}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-medium text-white disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #6366f1)', boxShadow: '0 2px 12px rgba(124,58,237,0.25)' }}
+              >
+                {isLoading ? (
+                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Search className="w-3.5 h-3.5" />
+                )}
+                {t.search.searchBtn}
+              </motion.button>
             </form>
 
-            {/* Search Filter & Sort Bar */}
             <FilterSortBar
               filters={searchFilters}
               onChange={setSearchFilters}
               keywords={keywords}
             />
 
-            {/* Search Results */}
-            <div className="space-y-3">
-              {filteredSearchResults.length === 0 && searchResults.length > 0 && (
-                <div className="text-center py-12 rounded-2xl border border-dashed border-white/10">
-                  <p className="text-slate-500">{t.search.noResults}</p>
-                  <p className="text-sm text-slate-600 mt-1">{t.search.adjustFilters}</p>
+            {/* Results Area */}
+            <div className="space-y-2.5">
+              {/* Loading */}
+              {isLoading && (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <div className="relative w-12 h-12">
+                    <div className="absolute inset-0 rounded-full border-2 border-violet-500/20" />
+                    <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-violet-500 animate-spin" />
+                  </div>
+                  <p className="text-sm text-slate-500">{t.search.loading}</p>
                 </div>
               )}
-              {filteredSearchResults.map((hotspot, i) => {
+
+              {/* No results */}
+              {!isLoading && searchResults.length === 0 && searchQuery.trim() !== '' && (
+                <div className="flex flex-col items-center justify-center py-20 gap-4 rounded-xl"
+                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.07)' }}>
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.08)' }}>
+                    <Search className="w-8 h-8 text-red-400/60" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-slate-400">{t.search.noResults}</p>
+                    <p className="text-xs text-slate-600 mt-1">{t.search.noResultsHint}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Filtered empty */}
+              {filteredSearchResults.length === 0 && searchResults.length > 0 && !isLoading && (
+                <div className="text-center py-12 rounded-xl" style={{ border: '1px dashed rgba(255,255,255,0.07)' }}>
+                  <p className="text-sm text-slate-500">{t.search.noResults}</p>
+                  <p className="text-xs text-slate-600 mt-1">{t.search.noResultsHint}</p>
+                </div>
+              )}
+
+              {/* Results */}
+              {!isLoading && filteredSearchResults.length > 0 && filteredSearchResults.map((hotspot, i) => {
                 const heatScore = calcHeatScore(hotspot);
                 const heat = getHeatLevel(heatScore);
+                const impColor = getImportanceColor(hotspot.importance);
                 return (
-                <motion.div 
-                  key={hotspot.id} 
-                  initial={{ opacity: 0, y: 10 }}
+                <motion.div
+                  key={hotspot.id}
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.03 }}
-                  className="group p-5 rounded-2xl bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 transition-all"
+                  transition={{ delay: i * 0.025 }}
+                  className="rounded-xl overflow-hidden"
+                  style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-3">
-                        <span className={cn(
-                          "px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase flex items-center",
-                          hotspot.importance === 'urgent' && "bg-red-500/15 text-red-400 border border-red-500/20",
-                          hotspot.importance === 'high' && "bg-orange-500/15 text-orange-400 border border-orange-500/20",
-                          hotspot.importance === 'medium' && "bg-amber-500/15 text-amber-400 border border-amber-500/20",
-                          hotspot.importance === 'low' && "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
-                        )}>
-                          {getImportanceIcon(hotspot.importance)}
-                          <span className="ml-1">{t.importance[hotspot.importance as keyof typeof t.importance]}</span>
-                        </span>
-                        <span className="flex items-center gap-1 text-xs text-slate-600">
-                          {getSourceIcon(hotspot.source)}
-                          {getSourceLabel(hotspot.source)}
-                        </span>
-                        {!hotspot.isReal && (
-                          <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-red-500/10 text-red-400 border border-red-500/20">
-                            <ShieldAlert className="w-3 h-3" />
-                            {t.dashboard.suspicious}
+                  <div className="h-0.5 w-full" style={{
+                    background: hotspot.importance === 'urgent' ? 'linear-gradient(90deg, #ef4444, transparent)' :
+                      hotspot.importance === 'high' ? 'linear-gradient(90deg, #a855f7, transparent)' :
+                      hotspot.importance === 'medium' ? 'linear-gradient(90deg, #f59e0b, transparent)' :
+                      'linear-gradient(90deg, #10b981, transparent)'
+                  }} />
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                          <span className={cn("flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wide", impColor.bg, impColor.text)}>
+                            {getImportanceIcon(hotspot.importance)}
+                            <span>{t.importance[hotspot.importance as keyof typeof t.importance]}</span>
                           </span>
-                        )}
-                        <span className={cn("flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-white/5 border border-white/10 font-medium", heat.color)}>
-                          <ThermometerSun className="w-3 h-3" />
-                          {heat.label} {heatScore}
-                        </span>
-                      </div>
-                      <h3 className="font-medium text-white mb-2 group-hover:text-blue-400 transition-colors">{hotspot.title}</h3>
-                      {hotspot.summary && (
-                        <div className="mb-2">
-                          <span className="text-[10px] text-blue-400/60 font-medium mr-1.5">{t.dashboard.aiSummary}</span>
-                          <span className="text-sm text-slate-500">{hotspot.summary}</span>
+                          <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                            {getSourceIcon(hotspot.source)}
+                            <span>{getSourceLabel(hotspot.source)}</span>
+                          </span>
+                          {!hotspot.isReal && (
+                            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-medium"
+                              style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.15)' }}>
+                              <ShieldAlert className="w-3 h-3" />
+                              {t.dashboard.suspicious}
+                            </span>
+                          )}
+                          <span className={cn("flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-medium border", heat.color, "bg-white/5 border-white/10")}>
+                            <ThermometerSun className="w-3 h-3" />
+                            {heat.label} {heatScore}
+                          </span>
                         </div>
-                      )}
-                      {hotspot.authorName && (
-                        <div className="flex items-center gap-2 mb-2">
-                          <User className="w-4 h-4 text-slate-600" />
-                          <span className="text-xs text-slate-400">{hotspot.authorName}</span>
-                          {hotspot.authorVerified && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400">✓ {t.dashboard.verified}</span>
+                        <h3 className="text-[14px] font-medium text-white leading-snug group-hover:text-violet-300 transition-colors">{hotspot.title}</h3>
+                        {hotspot.summary && (
+                          <p className="text-[12px] text-slate-500 mt-1.5 leading-relaxed line-clamp-2">{hotspot.summary}</p>
+                        )}
+                        {hotspot.authorName && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <User className="w-3.5 h-3.5 text-slate-600" />
+                            <span className="text-[11px] text-slate-400">{hotspot.authorName}</span>
+                            {hotspot.authorVerified && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                                style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa' }}>Verified</span>
+                            )}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-600">
+                          <span className="flex items-center gap-1 font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                            <Target className="w-3 h-3" />
+                            {hotspot.relevance}% {t.dashboard.relevance}
+                          </span>
+                          {hotspot.likeCount != null && hotspot.likeCount > 0 && (
+                            <span className="flex items-center gap-1"><Zap className="w-3 h-3" />{hotspot.likeCount.toLocaleString()}</span>
+                          )}
+                          {hotspot.viewCount != null && hotspot.viewCount > 0 && (
+                            <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{hotspot.viewCount.toLocaleString()}</span>
+                          )}
+                          {hotspot.publishedAt && (
+                            <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{relativeTime(hotspot.publishedAt)}</span>
                           )}
                         </div>
-                      )}
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
-                        <span className="flex items-center gap-1">
-                          <Target className="w-3.5 h-3.5" />
-                          {t.dashboard.relevance} {hotspot.relevance}%
-                        </span>
-                        {hotspot.likeCount != null && hotspot.likeCount > 0 && (
-                          <span className="flex items-center gap-1" title={t.dashboard.likes}>
-                            <Zap className="w-3.5 h-3.5" />
-                            {hotspot.likeCount.toLocaleString()}
-                          </span>
-                        )}
-                        {hotspot.viewCount != null && hotspot.viewCount > 0 && (
-                          <span className="flex items-center gap-1" title={t.dashboard.views}>
-                            <Eye className="w-3.5 h-3.5" />
-                            {hotspot.viewCount.toLocaleString()}
-                          </span>
-                        )}
                       </div>
-                      {hotspot.publishedAt && (
-                        <div className="flex items-center gap-1 text-[11px] text-slate-600 mt-1" title={formatDateTime(hotspot.publishedAt)}>
-                          <Clock className="w-3 h-3" />
-                          {t.dashboard.published} {relativeTime(hotspot.publishedAt)}
-                        </div>
-                      )}
+                      <a
+                        href={hotspot.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 px-4 py-2 rounded-lg text-[12px] font-medium transition-all duration-200"
+                        style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}
+                      >
+                        {t.search.seeMore}
+                      </a>
                     </div>
-                    <a
-                      href={hotspot.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="shrink-0 px-4 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-sm font-medium transition-all"
-                    >
-                      {t.search.seeMore}
-                    </a>
                   </div>
                 </motion.div>
                 );

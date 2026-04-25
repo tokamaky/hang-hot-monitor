@@ -54,11 +54,12 @@ function Dropdown({
       <button
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap",
+          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap",
           isActive
-            ? "bg-blue-500/15 text-blue-400 border border-blue-500/30"
-            : "bg-white/5 text-slate-400 border border-white/10 hover:border-white/20 hover:text-slate-300"
+            ? "text-violet-400"
+            : "text-slate-400 hover:text-slate-200"
         )}
+        style={isActive ? { background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.2)' } : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
       >
         <span>{isActive ? selected?.label : label}</span>
         <ChevronDown className={cn("w-3 h-3 transition-transform", open && "rotate-180")} />
@@ -73,18 +74,20 @@ function Dropdown({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 4, scale: 0.96 }}
               transition={{ duration: 0.15 }}
-              className="absolute left-0 top-full mt-1 z-50 min-w-[160px] bg-[#0d0d20]/98 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl overflow-hidden"
+              className="absolute left-0 top-full mt-1 z-50 min-w-[160px] rounded-xl overflow-hidden"
+              style={{ background: 'rgba(9,9,26,0.97)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}
             >
               {options.map((option) => (
                 <button
                   key={option.value}
                   onClick={() => { onChange(option.value); setOpen(false); }}
                   className={cn(
-                    "w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors text-left",
+                    "w-full flex items-center gap-2 px-3 py-2 text-[12px] transition-colors text-left",
                     value === option.value
-                      ? "bg-blue-500/10 text-blue-400"
-                      : "text-slate-400 hover:bg-white/5 hover:text-white"
+                      ? "text-violet-400"
+                      : "text-slate-400 hover:bg-white/[0.04] hover:text-white"
                   )}
+                  style={value === option.value ? { background: 'rgba(124,58,237,0.08)' } : {}}
                 >
                   {value === option.value && <Check className="w-3 h-3 shrink-0" />}
                   <span className={cn(option.color)}>{option.label}</span>
@@ -124,10 +127,10 @@ export default function FilterSortBar({ filters, onChange, keywords }: FilterSor
 
   const importanceOpts = [
     { value: '', label: t.filters.allLevels },
-    { value: 'urgent', label: `🔴 ${t.filters.urgent}`, color: 'text-red-400' },
-    { value: 'high', label: `🟠 ${t.filters.high}`, color: 'text-orange-400' },
-    { value: 'medium', label: `🟡 ${t.filters.medium}`, color: 'text-amber-400' },
-    { value: 'low', label: `🟢 ${t.filters.low}`, color: 'text-emerald-400' },
+    { value: 'urgent', label: t.filters.urgent, color: 'text-red-400' },
+    { value: 'high', label: t.filters.high, color: 'text-purple-400' },
+    { value: 'medium', label: t.filters.medium, color: 'text-amber-400' },
+    { value: 'low', label: t.filters.low, color: 'text-emerald-400' },
   ];
 
   const timeRangeOpts = [
@@ -170,8 +173,8 @@ export default function FilterSortBar({ filters, onChange, keywords }: FilterSor
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex items-center gap-1 bg-white/[0.03] rounded-xl border border-white/5 p-1">
-          <ArrowUpDown className="w-3.5 h-3.5 text-slate-600 ml-2" />
+        <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <ArrowUpDown className="w-3.5 h-3.5 text-slate-600 ml-1.5" />
           {sortOpts.map((opt) => {
             const Icon = opt.icon;
             return (
@@ -179,11 +182,12 @@ export default function FilterSortBar({ filters, onChange, keywords }: FilterSor
                 key={opt.value}
                 onClick={() => update('sortBy', opt.value)}
                 className={cn(
-                  "flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap",
+                  "flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap",
                   filters.sortBy === opt.value
-                    ? "bg-blue-500/15 text-blue-400 shadow-sm"
+                    ? "text-violet-300"
                     : "text-slate-500 hover:text-slate-300"
                 )}
+                style={filters.sortBy === opt.value ? { background: 'rgba(124,58,237,0.12)' } : {}}
               >
                 <Icon className="w-3 h-3" />
                 {opt.label}
@@ -195,16 +199,19 @@ export default function FilterSortBar({ filters, onChange, keywords }: FilterSor
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={cn(
-            "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all",
-            showFilters || activeFilterCount > 0
-              ? "bg-blue-500/15 text-blue-400 border border-blue-500/30"
-              : "bg-white/5 text-slate-400 border border-white/10 hover:border-white/20"
+            "flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium transition-all",
+            showFilters || activeFilterCount > 0 ? "text-violet-400" : "text-slate-500"
           )}
+          style={showFilters || activeFilterCount > 0
+            ? { background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.2)' }
+            : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }
+          }
         >
           <Filter className="w-3.5 h-3.5" />
           {t.filters.filter}
           {activeFilterCount > 0 && (
-            <span className="w-4 h-4 rounded-full bg-blue-500 text-[10px] text-white flex items-center justify-center font-bold">
+            <span className="w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center text-white"
+              style={{ background: '#7c3aed' }}>
               {activeFilterCount}
             </span>
           )}
@@ -213,7 +220,7 @@ export default function FilterSortBar({ filters, onChange, keywords }: FilterSor
         {(activeFilterCount > 0 || hasNonDefaultSort) && (
           <button
             onClick={resetFilters}
-            className="flex items-center gap-1 px-2.5 py-2 rounded-xl text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            className="flex items-center gap-1 px-2.5 py-2 rounded-lg text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
           >
             <RotateCcw className="w-3 h-3" />
             {t.filters.reset}
@@ -264,7 +271,8 @@ export default function FilterSortBar({ filters, onChange, keywords }: FilterSor
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
           >
-            <div className="flex items-center gap-2 flex-wrap p-3 rounded-xl bg-white/[0.02] border border-white/5">
+            <div className="flex items-center gap-2 flex-wrap p-3 rounded-xl"
+              style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
               <Dropdown label={t.filters.source} value={filters.source} options={sourceOpts} onChange={(v) => update('source', v)} />
               <Dropdown label={t.filters.importance} value={filters.importance} options={importanceOpts} onChange={(v) => update('importance', v)} />
               <Dropdown label={t.filters.keyword} value={filters.keywordId} options={keywordOptions} onChange={(v) => update('keywordId', v)} />
@@ -280,9 +288,10 @@ export default function FilterSortBar({ filters, onChange, keywords }: FilterSor
 
 function FilterTag({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-blue-500/10 text-blue-400 text-[10px] font-medium border border-blue-500/20">
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium"
+      style={{ background: 'rgba(124,58,237,0.1)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.15)' }}>
       {label}
-      <button onClick={onRemove} className="hover:text-white transition-colors">
+      <button onClick={onRemove} className="hover:opacity-70 transition-opacity">
         <X className="w-2.5 h-2.5" />
       </button>
     </span>

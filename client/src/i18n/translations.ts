@@ -62,11 +62,12 @@ export const en = {
   search: {
     placeholder: 'Search hotspot content...',
     searchBtn: 'Search',
-    noResults: 'No results under current filters',
-    adjustFilters: 'Try adjusting the filter conditions',
+    noResults: 'No results found',
+    noResultsHint: 'Try different keywords or adjust your filters',
+    loading: 'Searching...',
+    seeMore: 'See more',
     found: 'Found',
     results: 'results',
-    seeMore: 'See more',
   },
   notifications: {
     newHotspot: 'New hotspot found',
@@ -195,11 +196,12 @@ export const zh = {
   search: {
     placeholder: '搜索热点内容...',
     searchBtn: '搜索',
-    noResults: '当前筛选条件下无结果',
-    adjustFilters: '尝试调整筛选条件',
+    noResults: '暂无搜索结果',
+    noResultsHint: '试试其他关键词或调整筛选条件',
+    loading: '正在搜索...',
+    seeMore: '查看',
     found: '找到',
     results: '条结果',
-    seeMore: '查看',
   },
   notifications: {
     newHotspot: '发现新热点',

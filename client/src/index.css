@@ -2,29 +2,38 @@
 
 /* ===== Design Tokens ===== */
 :root {
-  --bg-base: #050510;
-  --bg-surface: #0a0a1a;
-  --bg-elevated: #111127;
-  --bg-hover: #16163a;
-  --border-subtle: rgba(59, 130, 246, 0.08);
-  --border-default: rgba(59, 130, 246, 0.15);
-  --border-active: rgba(59, 130, 246, 0.35);
-  --text-primary: #e8eaf0;
-  --text-secondary: #8b8fa8;
-  --text-muted: #5a5e78;
+  --bg-base: #05050f;
+  --bg-surface: #09091a;
+  --bg-card: rgba(255, 255, 255, 0.025);
+  --bg-card-hover: rgba(255, 255, 255, 0.045);
+  --bg-glass: rgba(9, 9, 26, 0.85);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.1);
+  --border-hover: rgba(255, 255, 255, 0.16);
+  --text-primary: #e4e5ef;
+  --text-secondary: #9298b0;
+  --text-muted: #525870;
+  --text-faint: #383b50;
+  --accent-primary: #7c3aed;
+  --accent-secondary: #6366f1;
+  --accent-glow: rgba(124, 58, 237, 0.25);
   --accent-blue: #3b82f6;
-  --accent-cyan: #06b6d4;
   --accent-emerald: #10b981;
   --accent-amber: #f59e0b;
   --accent-red: #ef4444;
+  --accent-red-glow: rgba(239, 68, 68, 0.2);
+  --radius-card: 14px;
+  --radius-btn: 10px;
+  --radius-sm: 6px;
 }
 
 /* ===== Animations ===== */
 @theme inline {
-  --animate-spotlight: spotlight 2s ease 0.75s 1 forwards;
+  --animate-spotlight: spotlight 2.5s ease 1s 1 forwards;
   --animate-meteor-effect: meteor 5s linear infinite;
-  --animate-shimmer: shimmer 2s linear infinite;
   --animate-pulse-soft: pulse-soft 3s ease-in-out infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-fade-up: fade-up 0.4s ease forwards;
 
   @keyframes spotlight {
     0% { opacity: 0; transform: translate(-72%, -62%) scale(0.5); }
@@ -35,28 +44,28 @@
     70% { opacity: 1; }
     100% { transform: rotate(215deg) translateX(-500px); opacity: 0; }
   }
-  @keyframes shimmer {
-    from { background-position: 0 0; }
-    to { background-position: -200% 0; }
-  }
   @keyframes pulse-soft {
     0%, 100% { opacity: 0.6; }
     50% { opacity: 1; }
   }
-  @keyframes spin {
-    from { --angle: 0deg; }
-    to { --angle: 360deg; }
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-8px); }
+  }
+  @keyframes fade-up {
+    0% { opacity: 0; transform: translateY(12px); }
+    100% { opacity: 1; transform: translateY(0); }
   }
 }
 
-@property --angle {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
+/* ===== Base ===== */
+* {
+  box-sizing: border-box;
 }
 
-/* ===== Base ===== */
-* { box-sizing: border-box; }
+html {
+  scroll-behavior: smooth;
+}
 
 body {
   margin: 0;
@@ -68,12 +77,73 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ===== Selection ===== */
+::selection {
+  background: rgba(124, 58, 237, 0.3);
+  color: #e4e5ef;
+}
+
+/* ===== Focus ===== */
+:focus-visible {
+  outline: 2px solid rgba(124, 58, 237, 0.5);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
 /* ===== Scrollbar ===== */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(59, 130, 246, 0.15); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(59, 130, 246, 0.3); }
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+}
 
 /* ===== Line Clamp ===== */
 .line-clamp-1 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; }
 .line-clamp-2 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.line-clamp-3 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+
+/* ===== Glass effect ===== */
+.glass {
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.glass-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ===== Glow effects ===== */
+.glow-primary {
+  box-shadow: 0 0 20px var(--accent-glow), 0 0 40px rgba(124, 58, 237, 0.1);
+}
+
+.glow-red {
+  box-shadow: 0 0 20px var(--accent-red-glow);
+}
+
+/* ===== Importance accent bar ===== */
+.accent-urgent { border-left: 3px solid var(--accent-red); }
+.accent-high { border-left: 3px solid #a855f7; }
+.accent-medium { border-left: 3px solid var(--accent-amber); }
+.accent-low { border-left: 3px solid var(--accent-emerald); }
