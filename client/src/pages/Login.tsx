@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Github, Mail, User, Lock, Loader2 } from 'lucide-react';
+import { Github, User, Lock, Loader2 } from 'lucide-react';
 import { useI18n } from '../i18n/index.tsx';
 import { authApi } from '../services/api';
 import type { CurrentUser } from '../services/api';
@@ -21,7 +21,7 @@ interface CurrentUser {
 export default function Login({ error: oauthError, onLogin, onSuccess }: LoginProps) {
   const { t } = useI18n();
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [formData, setFormData] = useState({ email: '', password: '', username: '' });
+  const [formData, setFormData] = useState({ username: '', password: '' });
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -32,12 +32,12 @@ export default function Login({ error: oauthError, onLogin, onSuccess }: LoginPr
 
     try {
       if (mode === 'register') {
-        if (!formData.email.trim()) {
-          setFormError(t.login.errors.emailRequired);
-          return;
-        }
         if (!formData.username.trim()) {
           setFormError(t.login.errors.usernameRequired);
+          return;
+        }
+        if (formData.username.trim().length < 2) {
+          setFormError('Username must be at least 2 characters');
           return;
         }
         if (formData.password.length < 6) {
@@ -46,14 +46,13 @@ export default function Login({ error: oauthError, onLogin, onSuccess }: LoginPr
         }
 
         const result = await authApi.register({
-          email: formData.email.trim(),
-          password: formData.password,
           username: formData.username.trim(),
+          password: formData.password,
         });
         onSuccess(result.accessToken, result.user);
       } else {
-        if (!formData.email.trim()) {
-          setFormError(t.login.errors.emailRequired);
+        if (!formData.username.trim()) {
+          setFormError(t.login.errors.usernameRequired);
           return;
         }
         if (!formData.password) {
@@ -62,7 +61,7 @@ export default function Login({ error: oauthError, onLogin, onSuccess }: LoginPr
         }
 
         const result = await authApi.emailLogin({
-          email: formData.email.trim(),
+          username: formData.username.trim(),
           password: formData.password,
         });
         onSuccess(result.accessToken, result.user);
@@ -147,28 +146,15 @@ export default function Login({ error: oauthError, onLogin, onSuccess }: LoginPr
           </button>
         </div>
 
-        {/* Email Form */}
+        {/* Username/Password Form */}
         <form onSubmit={handleSubmit} className="space-y-4 mb-6">
-          {mode === 'register' && (
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-              <input
-                type="text"
-                value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                placeholder={t.login.usernamePlaceholder}
-                className="w-full pl-10 pr-4 py-3 bg-[#0f0f1e] border border-white/10 rounded-xl text-white text-sm placeholder-slate-600 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all"
-              />
-            </div>
-          )}
-
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder={t.login.emailPlaceholder}
+              type="text"
+              value={formData.username}
+              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+              placeholder={t.login.usernamePlaceholder}
               className="w-full pl-10 pr-4 py-3 bg-[#0f0f1e] border border-white/10 rounded-xl text-white text-sm placeholder-slate-600 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all"
             />
           </div>

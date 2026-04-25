@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Flame, Search, Plus, Bell, Trash2,
@@ -14,7 +14,7 @@ import {
   type Keyword, type Hotspot, type Stats, type Notification, type CurrentUser,
   authApi, setAccessToken, clearAccessToken
 } from './services/api';
-import { onNewHotspot, onNotification, subscribeToKeywords } from './services/socket';
+import { onNewHotspot, onNotification, subscribeToKeywords, disconnectSocket } from './services/socket';
 import { cn } from './lib/utils';
 import { Spotlight } from './components/ui/spotlight';
 import { BackgroundBeams } from './components/ui/background-beams';
@@ -74,21 +74,37 @@ function App() {
   const tokenFromUrl = urlParams.get('token');
   const errorFromUrl = urlParams.get('error');
 
-  // If token in URL, store it and clear the URL
+  // If token in URL, store it and fetch user info
   useEffect(() => {
     if (tokenFromUrl) {
       setAccessToken(tokenFromUrl);
-      // Clean URL without refresh
-      window.history.replaceState({}, '', window.location.pathname);
+      // Immediately fetch user info with the new token
+      authApi.getMeWithToken(tokenFromUrl)
+        .then((user) => {
+          setCurrentUser(user);
+        })
+        .catch(() => {
+          clearAccessToken();
+          setLoginError('Authentication failed');
+        })
+        .finally(() => {
+          setAuthLoading(false);
+          // Clean URL without refresh
+          window.history.replaceState({}, '', window.location.pathname);
+        });
+      return; // Don't proceed with normal auth check
     }
     if (errorFromUrl) {
       setLoginError(errorFromUrl);
+      setAuthLoading(false);
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, [tokenFromUrl, errorFromUrl]);
 
-  // Verify token and load user on mount
+  // Verify token and load user on mount (only if no OAuth callback)
   useEffect(() => {
+    if (tokenFromUrl || errorFromUrl) return; // Skip if handling OAuth callback
+
     const token = sessionStorage.getItem('accessToken');
     if (token) {
       setAccessToken(token);
@@ -99,11 +115,13 @@ function App() {
         .catch(() => {
           clearAccessToken();
         })
-        .finally(() => setAuthLoading(false));
+        .finally(() => {
+          setAuthLoading(false);
+        });
     } else {
       setAuthLoading(false);
     }
-  }, []);
+  }, [tokenFromUrl, errorFromUrl]);
 
   const handleLogin = () => {
     authApi.githubLogin();
@@ -111,6 +129,7 @@ function App() {
 
   const handleLogout = async () => {
     await authApi.logout();
+    disconnectSocket();
     setCurrentUser(null);
   };
 
@@ -169,7 +188,7 @@ function App() {
       setUnreadCount(notifData.unreadCount);
       const activeKeywords = keywordsData.filter(k => k.isActive).map(k => k.text);
       if (activeKeywords.length > 0) {
-        subscribeToKeywords(activeKeywords);
+        subscribeToKeywords(activeKeywords).catch(console.error);
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -179,16 +198,27 @@ function App() {
   }, [dashboardFilters, currentPage]);
 
   useEffect(() => { setCurrentPage(1); }, [dashboardFilters]);
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { 
+    if (currentUser) loadData(); 
+  }, [currentUser, loadData]);
 
   useEffect(() => {
-    const unsubHotspot = onNewHotspot((hotspot) => {
+    let unsubHotspot: (() => void) | null = null;
+    let unsubNotif: (() => void) | null = null;
+
+    onNewHotspot((hotspot) => {
       setHotspots(prev => [hotspot as Hotspot, ...prev.slice(0, 19)]);
       showToast(`${t.notifications.newHotspot}: ` + hotspot.title.slice(0, 30), 'success');
       loadData();
-    });
-    const unsubNotif = onNotification(() => { setUnreadCount(prev => prev + 1); });
-    return () => { unsubHotspot(); unsubNotif(); };
+    }).then(unsub => { unsubHotspot = unsub; });
+
+    onNotification(() => { setUnreadCount(prev => prev + 1); })
+      .then(unsub => { unsubNotif = unsub; });
+
+    return () => {
+      unsubHotspot?.();
+      unsubNotif?.();
+    };
   }, [loadData, t.notifications.newHotspot]);
 
   const showToast = (message: string, type: 'success' | 'error') => {
@@ -204,7 +234,7 @@ function App() {
       setKeywords(prev => [keyword, ...prev]);
       setNewKeyword('');
       showToast(t.keywords.keywordAdded, 'success');
-      subscribeToKeywords([keyword.text]);
+      subscribeToKeywords([keyword.text]).catch(console.error);
     } catch (error: any) {
       showToast(error.message || t.keywords.addFailed, 'error');
     }
@@ -358,6 +388,11 @@ function App() {
       setAccessToken(token);
       setCurrentUser(user);
       setLoginError(null);
+      // Clear old data before loading new user data
+      setKeywords([]);
+      setHotspots([]);
+      setStats(null);
+      setNotifications([]);
     }} />;
   }
 

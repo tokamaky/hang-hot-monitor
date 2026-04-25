@@ -203,14 +203,19 @@ router.get('/me', async (req, res) => {
 });
 
 // ──────────────────────────────────────────────
-// Register (Email/Password)
+// Register (Username/Password)
 // POST /api/auth/register
 // ──────────────────────────────────────────────
 router.post('/register', async (req, res) => {
-  const { email, password, username } = req.body;
+  const { username, password } = req.body;
 
-  if (!email || !password || !username) {
-    res.status(400).json({ error: 'Email, password and username are required' });
+  if (!username || !password) {
+    res.status(400).json({ error: 'Username and password are required' });
+    return;
+  }
+
+  if (username.length < 2) {
+    res.status(400).json({ error: 'Username must be at least 2 characters' });
     return;
   }
 
@@ -219,25 +224,13 @@ router.post('/register', async (req, res) => {
     return;
   }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    res.status(400).json({ error: 'Invalid email format' });
-    return;
-  }
-
   try {
-    // Check if email or username already exists
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [{ email }, { username }],
-      },
+    // Check if username already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { username },
     });
 
     if (existingUser) {
-      if (existingUser.email === email) {
-        res.status(409).json({ error: 'Email already registered' });
-        return;
-      }
       res.status(409).json({ error: 'Username already taken' });
       return;
     }
@@ -248,7 +241,6 @@ router.post('/register', async (req, res) => {
     // Create user
     const user = await prisma.user.create({
       data: {
-        email,
         username,
         password: hashedPassword,
         role: 'user',
@@ -283,30 +275,30 @@ router.post('/register', async (req, res) => {
 });
 
 // ──────────────────────────────────────────────
-// Login (Email/Password)
+// Login (Username/Password)
 // POST /api/auth/login
 // ──────────────────────────────────────────────
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { username, password } = req.body;
 
-  if (!email || !password) {
-    res.status(400).json({ error: 'Email and password are required' });
+  if (!username || !password) {
+    res.status(400).json({ error: 'Username and password are required' });
     return;
   }
 
   try {
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { username },
     });
 
     if (!user || !user.password) {
-      res.status(401).json({ error: 'Invalid credentials' });
+      res.status(401).json({ error: 'Invalid username or password' });
       return;
     }
 
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
-      res.status(401).json({ error: 'Invalid credentials' });
+      res.status(401).json({ error: 'Invalid username or password' });
       return;
     }
 

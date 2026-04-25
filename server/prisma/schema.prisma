@@ -77,7 +77,7 @@ model User {
   id           String         @id @default(cuid())
   githubId     String?        @unique
   email        String?         @unique
-  username     String
+  username     String         @unique
   password     String?
   avatar       String?
   role         String          @default("user")

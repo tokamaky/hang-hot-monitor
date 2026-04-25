@@ -1,37 +1,55 @@
 import { io, Socket } from 'socket.io-client';
 
 let socket: Socket | null = null;
+let socketPromise: Promise<Socket> | null = null;
 
-export function getSocket(): Socket {
-  if (!socket) {
-    socket = io(window.location.origin, {
+async function createSocket(): Promise<Socket> {
+  return new Promise((resolve) => {
+    const newSocket = io(window.location.origin, {
       path: '/socket.io',
-      transports: ['websocket', 'polling']
+      transports: ['polling'],
+      reconnection: false,
+      timeout: 10000
     });
 
-    socket.on('connect', () => {
-      console.log('🔌 Socket connected:', socket?.id);
-    });
+    const onConnect = () => {
+      console.log('🔌 Socket connected:', newSocket.id);
+      newSocket.off('connect', onConnect);
+      resolve(newSocket);
+    };
 
-    socket.on('disconnect', () => {
-      console.log('🔌 Socket disconnected');
+    newSocket.on('connect', onConnect);
+    newSocket.on('connect_error', (err) => {
+      console.error('🔌 Socket connection error:', err.message);
     });
-
-    socket.on('connect_error', (error) => {
-      console.error('🔌 Socket connection error:', error);
-    });
-  }
-
-  return socket;
+  });
 }
 
-export function subscribeToKeywords(keywords: string[]): void {
-  const s = getSocket();
+export async function getSocket(): Promise<Socket> {
+  if (socket?.connected) {
+    return socket;
+  }
+
+  if (socketPromise) {
+    return socketPromise;
+  }
+
+  socketPromise = createSocket().then((s) => {
+    socket = s;
+    socketPromise = null;
+    return s;
+  });
+
+  return socketPromise;
+}
+
+export async function subscribeToKeywords(keywords: string[]): Promise<void> {
+  const s = await getSocket();
   s.emit('subscribe', keywords);
 }
 
-export function unsubscribeFromKeywords(keywords: string[]): void {
-  const s = getSocket();
+export async function unsubscribeFromKeywords(keywords: string[]): Promise<void> {
+  const s = await getSocket();
   s.emit('unsubscribe', keywords);
 }
 
@@ -54,14 +72,14 @@ export interface NotificationEvent {
   importance?: string;
 }
 
-export function onNewHotspot(callback: (hotspot: HotspotEvent) => void): () => void {
-  const s = getSocket();
+export async function onNewHotspot(callback: (hotspot: HotspotEvent) => void): Promise<() => void> {
+  const s = await getSocket();
   s.on('hotspot:new', callback);
   return () => s.off('hotspot:new', callback);
 }
 
-export function onNotification(callback: (notification: NotificationEvent) => void): () => void {
-  const s = getSocket();
+export async function onNotification(callback: (notification: NotificationEvent) => void): Promise<() => void> {
+  const s = await getSocket();
   s.on('notification', callback);
   return () => s.off('notification', callback);
 }
@@ -70,5 +88,6 @@ export function disconnectSocket(): void {
   if (socket) {
     socket.disconnect();
     socket = null;
+    socketPromise = null;
   }
 }

@@ -1,11 +1,15 @@
 import { Router } from 'express';
 import { prisma } from '../db.js';
 import { sortHotspots } from '../utils/sortHotspots.js';
+import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
 
-// 获取所有热点
-router.get('/', async (req, res) => {
+// 所有热点路由都需要认证
+router.use(authMiddleware);
+
+// 获取所有热点（只返回当前用户关键词相关的热点）
+router.get('/', async (req: AuthRequest, res) => {
   try {
     const { 
       page = '1', 
@@ -25,7 +29,22 @@ router.get('/', async (req, res) => {
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = {};
+    // 获取当前用户的所有关键词ID
+    const userKeywords = await prisma.keyword.findMany({
+      where: { userId: req.userId },
+      select: { id: true }
+    });
+    const keywordIds = userKeywords.map(k => k.id);
+
+    // 如果用户没有关键词，返回空列表
+    if (keywordIds.length === 0) {
+      return res.json({
+        data: [],
+        pagination: { page: pageNum, limit: limitNum, total: 0, totalPages: 0 }
+      });
+    }
+
+    const where: any = { keywordId: { in: keywordIds } };
     if (source) where.source = source;
     if (importance) where.importance = importance;
     if (keywordId) where.keywordId = keywordId;
@@ -122,11 +141,30 @@ router.get('/', async (req, res) => {
   }
 });
 
-// 获取热点统计
-router.get('/stats', async (req, res) => {
+// 获取热点统计（只统计当前用户关键词相关的热点）
+router.get('/stats', async (req: AuthRequest, res) => {
   try {
+    // 获取当前用户的所有关键词ID
+    const userKeywords = await prisma.keyword.findMany({
+      where: { userId: req.userId },
+      select: { id: true }
+    });
+    const keywordIds = userKeywords.map(k => k.id);
+
+    // 如果用户没有关键词，返回空统计
+    if (keywordIds.length === 0) {
+      return res.json({
+        total: 0,
+        today: 0,
+        urgent: 0,
+        bySource: {}
+      });
+    }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    const where = { keywordId: { in: keywordIds } };
 
     const [
       totalHotspots,
@@ -134,15 +172,16 @@ router.get('/stats', async (req, res) => {
       urgentHotspots,
       sourceStats
     ] = await Promise.all([
-      prisma.hotspot.count(),
+      prisma.hotspot.count({ where }),
       prisma.hotspot.count({
-        where: { createdAt: { gte: today } }
+        where: { ...where, createdAt: { gte: today } }
       }),
       prisma.hotspot.count({
-        where: { importance: 'urgent' }
+        where: { ...where, importance: 'urgent' }
       }),
       prisma.hotspot.groupBy({
         by: ['source'],
+        where,
         _count: { source: true }
       })
     ]);
@@ -162,11 +201,21 @@ router.get('/stats', async (req, res) => {
   }
 });
 
-// 获取单个热点
-router.get('/:id', async (req, res) => {
+// 获取单个热点（只允许查看属于自己关键词的热点）
+router.get('/:id', async (req: AuthRequest, res) => {
   try {
-    const hotspot = await prisma.hotspot.findUnique({
-      where: { id: req.params.id },
+    // 获取当前用户的所有关键词ID
+    const userKeywords = await prisma.keyword.findMany({
+      where: { userId: req.userId },
+      select: { id: true }
+    });
+    const keywordIds = userKeywords.map(k => k.id);
+
+    const hotspot = await prisma.hotspot.findFirst({
+      where: { 
+        id: req.params.id,
+        keywordId: { in: keywordIds }
+      },
       include: {
         keyword: true
       }
@@ -238,9 +287,28 @@ router.post('/search', async (req, res) => {
   }
 });
 
-// 删除热点
-router.delete('/:id', async (req, res) => {
+// 删除热点（只允许删除属于自己关键词的热点）
+router.delete('/:id', async (req: AuthRequest, res) => {
   try {
+    // 获取当前用户的所有关键词ID
+    const userKeywords = await prisma.keyword.findMany({
+      where: { userId: req.userId },
+      select: { id: true }
+    });
+    const keywordIds = userKeywords.map(k => k.id);
+
+    // 检查热点是否属于用户的关键词
+    const hotspot = await prisma.hotspot.findFirst({
+      where: { 
+        id: req.params.id,
+        keywordId: { in: keywordIds }
+      }
+    });
+
+    if (!hotspot) {
+      return res.status(404).json({ error: 'Hotspot not found' });
+    }
+
     await prisma.hotspot.delete({
       where: { id: req.params.id }
     });

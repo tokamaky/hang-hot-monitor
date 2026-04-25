@@ -63,18 +63,33 @@ router.post('/', async (req: AuthRequest, res) => {
       return res.status(400).json({ error: 'Keyword text is required' });
     }
 
+    // 先检查是否已存在（区分是自己的还是其他用户的）
+    const existing = await prisma.keyword.findFirst({
+      where: { text: text.trim(), userId: req.userId }
+    });
+
+    if (existing) {
+      return res.status(409).json({ error: 'Keyword already exists in your list' });
+    }
+
     const keyword = await prisma.keyword.create({
       data: {
         text: text.trim(),
         category: category?.trim() || null,
         userId: req.userId
+      },
+      include: {
+        _count: {
+          select: { hotspots: true }
+        }
       }
     });
 
     res.status(201).json(keyword);
   } catch (error: any) {
+    // P2002 is Prisma's unique constraint violation - treat as "already exists"
     if (error.code === 'P2002') {
-      return res.status(409).json({ error: 'Keyword already exists' });
+      return res.status(409).json({ error: 'Keyword already exists in your list' });
     }
     console.error('Error creating keyword:', error);
     res.status(500).json({ error: 'Failed to create keyword' });

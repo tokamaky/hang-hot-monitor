@@ -23,7 +23,7 @@ export const authApi = {
     window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/auth/github`;
   },
 
-  register: (data: { email: string; password: string; username: string }) => {
+  register: (data: { username: string; password: string }) => {
     return fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -38,7 +38,7 @@ export const authApi = {
     });
   },
 
-  emailLogin: (data: { email: string; password: string }) => {
+  emailLogin: (data: { username: string; password: string }) => {
     return fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -61,6 +61,15 @@ export const authApi = {
   getMe: () => {
     return fetch(`${API_BASE}/auth/me`, {
       headers: { Authorization: `Bearer ${getAccessToken()}` },
+    }).then(async (res) => {
+      if (!res.ok) throw new Error('Not authenticated');
+      return res.json();
+    });
+  },
+
+  getMeWithToken: (token: string) => {
+    return fetch(`${API_BASE}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
     }).then(async (res) => {
       if (!res.ok) throw new Error('Not authenticated');
       return res.json();
