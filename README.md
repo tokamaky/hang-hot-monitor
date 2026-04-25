@@ -82,6 +82,21 @@ If you're a tech blogger, researcher, or PM, **you can't afford to miss a trendi
 ```
 
 ---
+## 🔥 Engineering Highlights
+
+| # | Highlight | Why it matters |
+|---|---|---|
+| 1 | **Two-stage AI pipeline** (cheap text pre-filter → LLM only on survivors, with response caching) | Demonstrates cost-aware system design — most engineers naively pipe everything through the LLM |
+| 2 | **Custom rate limiters per data source**, with rotating User-Agents | Real-world scraping experience — not a textbook `axios.get()` |
+| 3 | **Socket.io rooms** scoped per keyword | Fan-out broadcast vs. fan-in subscription — pub/sub done right |
+| 4 | **Strict TypeScript end-to-end** with shared types between server and client | Catch contract drift at compile time |
+| 5 | **Prisma migrations** versioned in git | Production-grade schema management, not `db push` cowboy ops |
+| 6 | **Cron + manual trigger endpoint** for the same job | Production scheduling + dev-time observability |
+| 7 | **Graceful degradation** — every external dependency (Twitter, OpenRouter, SMTP) is optional | The app boots and works even without API keys |
+| 8 | **Custom heat-score algorithm** with log compression | Comparing apples-to-oranges metrics across 8 different platforms |
+| 9 | **i18n via React Context** — zero dependencies | Shows you can solve simple problems without reaching for `i18next` |
+| 10 | **Glassmorphism UI** with Framer Motion + Tailwind v4 | Frontend polish, not just engineering |
+---
 
 ## ✨ Feature Highlights
 
@@ -146,21 +161,6 @@ score = min(100, round(log10(raw + 1) · 25))
 ```
 ---
 
-## 🔥 Engineering Highlights
-
-| # | Highlight | Why it matters |
-|---|---|---|
-| 1 | **Two-stage AI pipeline** (cheap text pre-filter → LLM only on survivors, with response caching) | Demonstrates cost-aware system design — most engineers naively pipe everything through the LLM |
-| 2 | **Custom rate limiters per data source**, with rotating User-Agents | Real-world scraping experience — not a textbook `axios.get()` |
-| 3 | **Socket.io rooms** scoped per keyword | Fan-out broadcast vs. fan-in subscription — pub/sub done right |
-| 4 | **Strict TypeScript end-to-end** with shared types between server and client | Catch contract drift at compile time |
-| 5 | **Prisma migrations** versioned in git | Production-grade schema management, not `db push` cowboy ops |
-| 6 | **Cron + manual trigger endpoint** for the same job | Production scheduling + dev-time observability |
-| 7 | **Graceful degradation** — every external dependency (Twitter, OpenRouter, SMTP) is optional | The app boots and works even without API keys |
-| 8 | **Custom heat-score algorithm** with log compression | Comparing apples-to-oranges metrics across 8 different platforms |
-| 9 | **i18n via React Context** — zero dependencies | Shows you can solve simple problems without reaching for `i18next` |
-| 10 | **Glassmorphism UI** with Framer Motion + Tailwind v4 | Frontend polish, not just engineering |
----
 
 ## 🛠️ Tech Stack
 
