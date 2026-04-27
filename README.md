@@ -71,7 +71,7 @@ If you're a tech blogger, researcher, or PM, **you can't afford to miss a trendi
 │  │  └────────────────────────────────────────────────────┘  │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                 │
-│  Prisma ORM ──► SQLite (Railway volume)                         │
+│  Prisma ORM ──► PostgreSQL (Railway)                              │
 └─────────────────────────────────────────────────────────────────┘
        │                    │                    │
        ▼                    ▼                    ▼
@@ -173,7 +173,7 @@ score = min(100, round(log10(raw + 1) · 25))
 | **Crawling** | Axios + Cheerio, custom rate limiters, UA rotation |
 | **Email** | Nodemailer (SMTP) |
 | **Build** | `tsx` for dev, `tsc` for prod, `vitest` for tests |
-| **Deploy** | Railway (single container, Nixpacks build) |
+| **Deploy** | Railway (PostgreSQL + Nixpacks) |
 
 ---
 
@@ -301,6 +301,10 @@ The server listens on `http://localhost:3001`.
 ```bash
 cd client
 npm install
+
+# Configure .env.local if deploying separately
+cp .env.example .env.local
+
 npm run dev
 ```
 
@@ -311,10 +315,11 @@ Open `http://localhost:5173`.
 ```bash
 # Server
 PORT=3001
+NODE_ENV=production
 CLIENT_URL=http://localhost:5173
 
-# Database
-DATABASE_URL="file:./dev.db"
+# Database (PostgreSQL)
+DATABASE_URL=postgresql://username:password@host:5432/dbname
 
 # AI (optional but recommended)
 OPENROUTER_API_KEY=sk-or-v1-...
@@ -386,7 +391,7 @@ notification          Server pushes a new notification
 
 ## 🛣️ Roadmap
 
-- [ ] PostgreSQL adapter (one-line Prisma swap)
+- [x] ~~PostgreSQL adapter (one-line Prisma swap)~~ ✅
 - [ ] Multi-user auth (currently single-tenant)
 - [ ] Redis-backed rate limiter for horizontal scaling
 - [ ] Reddit / Mastodon / Threads sources

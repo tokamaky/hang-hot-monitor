@@ -1,0 +1,11 @@
+[railway]
+  plugin = ["nixpacks"]
+
+# 后端服务配置
+[railway.variables]
+  NODE_ENV = "production"
+
+# 健康检查
+[railway.healthcheck]
+  path = "/api/health"
+  port = 3001

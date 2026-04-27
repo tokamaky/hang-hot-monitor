@@ -1,4 +1,4 @@
-const API_BASE = '/api';
+const API_BASE = `${import.meta.env.VITE_API_URL || ''}/api`;
 
 // ─── Auth state (in-memory for security) ───
 let accessToken: string | null = null;
