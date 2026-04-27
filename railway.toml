@@ -1,11 +1,30 @@
 [railway]
   plugin = ["nixpacks"]
 
-# 后端服务配置
-[railway.variables]
+# Database 服务 (Railway 会自动创建一个 PostgreSQL 实例)
+[railway.database]
+  plugin = "postgresql"
+
+# ==================== Backend Service ====================
+[railway.service.backend]
+  name = "backend"
+  dockerfile = "server/Dockerfile"
+
+[railway.service.backend.variables]
   NODE_ENV = "production"
+  PORT = 3001
+  CLIENT_URL = "https://your-frontend-app.up.railway.app"  # 部署后更新
 
 # 健康检查
-[railway.healthcheck]
+[railway.service.backend.healthcheck]
   path = "/api/health"
   port = 3001
+
+# ==================== Frontend Service ====================
+[railway.service.frontend]
+  name = "frontend"
+  dockerfile = "client/Dockerfile"
+
+[railway.service.frontend.variables]
+  NODE_ENV = "production"
+  VITE_API_URL = "https://your-backend-app.up.railway.app"  # 部署后更新
