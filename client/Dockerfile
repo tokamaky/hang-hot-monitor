@@ -3,35 +3,25 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# VITE_API_URL 必须在构建时传入
+# VITE_API_URL 在构建时传入（Railway Build Variables）
 ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
 
-# Copy package files
 COPY package*.json ./
-
-# Install dependencies
 RUN npm ci
-
-# Copy source code
 COPY . .
-
-# Build (VITE_API_URL is embedded at build time)
 RUN npm run build
-
-# Verify build output
 RUN ls -la /app/dist
 
-# Production image - nginx to serve static files
+# Production image
 FROM nginx:alpine AS production
 
 ENV PORT=5173
 
-# Copy built files
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy nginx config (without hardcoded backend)
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# 复制到 docker-entrypoint.d 目录，nginx 会自动用 envsubst 替换变量
+COPY nginx.conf.template /docker-entrypoint.d/default.conf.template
 
 EXPOSE ${PORT}
 
