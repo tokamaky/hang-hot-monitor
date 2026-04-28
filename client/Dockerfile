@@ -19,10 +19,13 @@ COPY . .
 # Build (VITE_API_URL is embedded at this point)
 RUN npm run build
 
+# Verify dist folder exists and has content
+RUN ls -la /app/dist && test -f /app/dist/index.html
+
 # Production image - nginx to serve static files
 FROM nginx:alpine AS production
 
-# Copy nginx config
+# Copy built files and nginx config
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
