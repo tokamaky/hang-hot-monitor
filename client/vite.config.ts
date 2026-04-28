@@ -10,7 +10,7 @@ export default defineConfig({
     // 确保静态资源使用相对路径
     assetsDir: 'assets',
     // 优化打包体积
-    minify: 'terser',
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: {
