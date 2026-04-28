@@ -34,5 +34,5 @@
 
 # 前端健康检查
 [railway.service.frontend.healthcheck]
-  path = "/"
-  port = 80
+path = "/health"
+port = 80
