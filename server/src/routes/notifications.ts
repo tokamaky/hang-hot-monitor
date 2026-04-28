@@ -48,7 +48,7 @@ router.get('/', async (req, res) => {
 router.patch('/:id/read', async (req, res) => {
   try {
     const notification = await prisma.notification.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: { isRead: true }
     });
 
@@ -81,7 +81,7 @@ router.patch('/read-all', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     await prisma.notification.delete({
-      where: { id: req.params.id }
+      where: { id: req.params.id as string }
     });
 
     res.status(204).send();

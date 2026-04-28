@@ -49,7 +49,7 @@ router.put('/', async (req, res) => {
 router.get('/:key', async (req, res) => {
   try {
     const setting = await prisma.setting.findUnique({
-      where: { key: req.params.key }
+      where: { key: req.params.key as string }
     });
 
     if (!setting) {
@@ -73,9 +73,9 @@ router.put('/:key', async (req, res) => {
     }
 
     const setting = await prisma.setting.upsert({
-      where: { key: req.params.key },
+      where: { key: req.params.key as string },
       update: { value: String(value) },
-      create: { key: req.params.key, value: String(value) }
+      create: { key: req.params.key as string, value: String(value) }
     });
 
     res.json(setting);

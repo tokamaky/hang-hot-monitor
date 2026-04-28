@@ -299,8 +299,8 @@ router.delete('/:id', async (req: AuthRequest, res) => {
 
     // 检查热点是否属于用户的关键词
     const hotspot = await prisma.hotspot.findFirst({
-      where: { 
-        id: req.params.id,
+      where: {
+        id: req.params.id as string,
         keywordId: { in: keywordIds }
       }
     });
@@ -310,7 +310,7 @@ router.delete('/:id', async (req: AuthRequest, res) => {
     }
 
     await prisma.hotspot.delete({
-      where: { id: req.params.id }
+      where: { id: req.params.id as string }
     });
 
     res.status(204).send();
