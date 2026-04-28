@@ -15,6 +15,8 @@ RUN ls -la /app/dist
 # Production image
 FROM nginx:alpine AS production
 
+ENV PORT=80
+
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf.template /etc/nginx/conf.d/default.conf
 
