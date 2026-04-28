@@ -45,5 +45,6 @@ USER nodejs
 ENV PORT=3001
 EXPOSE 3001
 
-# 启动命令：先运行 migrations，再启动服务
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+# 启动命令：先同步 schema，再启动服务
+# db push 用于 Railway 新部署（无 migration 历史）
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/index.js"]
