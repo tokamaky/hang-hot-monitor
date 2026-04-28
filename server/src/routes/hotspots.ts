@@ -212,8 +212,8 @@ router.get('/:id', async (req: AuthRequest, res) => {
     const keywordIds = userKeywords.map(k => k.id);
 
     const hotspot = await prisma.hotspot.findFirst({
-      where: { 
-        id: req.params.id,
+      where: {
+        id: req.params.id as string,
         keywordId: { in: keywordIds }
       },
       include: {
