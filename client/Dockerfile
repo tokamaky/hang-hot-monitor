@@ -20,8 +20,8 @@ ENV PORT=80
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf.template /etc/nginx/conf.d/default.conf
 
-RUN sed -i 's/\${VITE_API_URL}/'"${VITE_API_URL}"'/g' /etc/nginx/conf.d/default.conf && \
-    sed -i 's/\${PORT}/'"${PORT:-80}"'/g' /etc/nginx/conf.d/default.conf
+RUN sed -i 's|\${VITE_API_URL}|'"${VITE_API_URL}"'|g' /etc/nginx/conf.d/default.conf && \
+    sed -i 's|__PORT__|'"${PORT:-80}"'|g' /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 
