@@ -30,3 +30,8 @@
 
 [railway.service.frontend.variables]
   NODE_ENV = "production"
+
+# 前端健康检查
+[railway.service.frontend.healthcheck]
+  path = "/"
+  port = 80
