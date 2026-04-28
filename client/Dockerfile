@@ -3,8 +3,8 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Build arguments with defaults
-ARG VITE_API_URL=https://backend-production-2871.up.railway.app
+# VITE_API_URL 必须在构建时传入
+ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
 
 # Copy package files
@@ -16,21 +16,22 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build (VITE_API_URL is embedded at this point)
+# Build (VITE_API_URL is embedded at build time)
 RUN npm run build
 
-# Verify dist folder exists and has content
-RUN ls -la /app/dist && test -f /app/dist/index.html
+# Verify build output
+RUN ls -la /app/dist
 
 # Production image - nginx to serve static files
 FROM nginx:alpine AS production
 
-
 ENV PORT=5173
 
-# Copy built files and nginx config template (will be processed by envsubst)
+# Copy built files
 COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf.template /docker-entrypoint.d/default.conf.template
+
+# Copy nginx config (without hardcoded backend)
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE ${PORT}
 
