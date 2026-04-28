@@ -106,7 +106,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   });
 
   // Auto-refresh on 401
-  if (response.status === 401 && !options.headers?.['Authorization']) {
+  if (response.status === 401 && !(options.headers as Record<string, string> | undefined)?.['Authorization']) {
     try {
       const { accessToken: newToken } = await authApi.refresh();
       setAccessToken(newToken);

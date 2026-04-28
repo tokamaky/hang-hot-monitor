@@ -10,14 +10,6 @@ interface LoginProps {
   onSuccess: (token: string, user: CurrentUser) => void;
 }
 
-interface CurrentUser {
-  id: string;
-  username: string;
-  email: string | null;
-  avatar: string | null;
-  role: string;
-}
-
 export default function Login({ error: oauthError, onLogin, onSuccess }: LoginProps) {
   const { t } = useI18n();
   const [mode, setMode] = useState<'login' | 'register'>('login');

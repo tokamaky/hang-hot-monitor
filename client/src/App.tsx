@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Flame, Search, Plus, Bell, Trash2,
   ExternalLink, RefreshCw, X, Check, AlertTriangle,
   Zap, TrendingUp, Twitter, Globe, Eye, Activity, Clock, Target,
   ChevronLeft, ChevronRight,
-  MessageCircle, Repeat2, Quote, User, Shield, ShieldAlert,
+  MessageCircle, Repeat2, User, Shield, ShieldAlert,
   ChevronDown, ChevronUp, ChevronsUpDown, ThermometerSun, FileText, Languages,
   Rss, Tag, BarChart3, LogOut
 } from 'lucide-react';
@@ -17,11 +17,10 @@ import {
 import { onNewHotspot, onNotification, subscribeToKeywords, disconnectSocket } from './services/socket';
 import { cn } from './lib/utils';
 import { Spotlight } from './components/ui/spotlight';
-import { BackgroundBeams } from './components/ui/background-beams';
 import { Meteors } from './components/ui/meteors';
 import FilterSortBar, { defaultFilterState, type FilterState } from './components/FilterSortBar';
 import { sortHotspots } from './utils/sortHotspots';
-import { relativeTime, formatDateTime } from './utils/relativeTime';
+import { relativeTime } from './utils/relativeTime';
 import { useI18n } from './i18n/index.tsx';
 import Login from './pages/Login';
 
@@ -139,15 +138,6 @@ function App() {
     if (score >= 40) return { label: t.heat.warm, color: 'text-amber-400' };
     if (score >= 20) return { label: t.heat.cool, color: 'text-blue-400' };
     return { label: t.heat.cold, color: 'text-slate-500' };
-  }
-
-  function getImportanceAccent(importance: string): string {
-    switch (importance) {
-      case 'urgent': return 'accent-urgent';
-      case 'high': return 'accent-high';
-      case 'medium': return 'accent-medium';
-      default: return 'accent-low';
-    }
   }
 
   function getImportanceColor(importance: string): { bg: string; text: string; border: string; dot: string } {
@@ -268,7 +258,7 @@ function App() {
       setSearchResults(result.results);
       showToast(`${t.search.found} ${result.results.length} ${t.search.results}`, 'success');
     } catch (error) {
-      showToast(t.search.searchFailed, 'error');
+      showToast(t.notifications.searchFailed, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -772,7 +762,6 @@ function App() {
                     const heatScore = calcHeatScore(hotspot);
                     const heat = getHeatLevel(heatScore);
                     const impColor = getImportanceColor(hotspot.importance);
-                    const accentClass = getImportanceAccent(hotspot.importance);
                     return (
                     <motion.div
                       key={hotspot.id}
