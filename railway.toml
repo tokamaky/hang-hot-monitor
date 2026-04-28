@@ -13,7 +13,7 @@
 [railway.service.backend.variables]
   NODE_ENV = "production"
   PORT = 3001
-  CLIENT_URL = "https://frontend-production-bbae.up.railway.app"  # 部署后更新
+  CLIENT_URL = "https://frontend-production-bbae.up.railway.app"
 
 # 健康检查
 [railway.service.backend.healthcheck]
@@ -25,6 +25,8 @@
   name = "frontend"
   dockerfile = "client/Dockerfile"
 
+[railway.service.frontend.build]
+  args = { VITE_API_URL = "https://backend-production-2871.up.railway.app" }
+
 [railway.service.frontend.variables]
   NODE_ENV = "production"
-  VITE_API_URL = "https://frontend-production-bbae.up.railway.app"  # 部署后更新

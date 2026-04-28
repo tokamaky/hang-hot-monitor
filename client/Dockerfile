@@ -3,6 +3,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# 接收 Railway 构建参数
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 # 复制 package 文件
 COPY package*.json ./
 
@@ -12,7 +16,7 @@ RUN npm ci
 # 复制源码
 COPY . .
 
-# 构建
+# 构建（VITE_API_URL 此时已嵌入 bundle）
 RUN npm run build
 
 # 生产镜像 - 使用 nginx 来服务静态文件
