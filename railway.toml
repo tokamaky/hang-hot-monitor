@@ -1,5 +1,4 @@
-[railway]
-  plugin = ["nixpacks"]
+
 
 # Database 服务 (Railway 会自动创建一个 PostgreSQL 实例)
 [railway.database]
