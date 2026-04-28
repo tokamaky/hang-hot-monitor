@@ -30,7 +30,7 @@ ENV PORT=5173
 
 # Copy built files and nginx config template (will be processed by envsubst)
 COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf.template /etc/nginx/conf.d/default.conf.template
+COPY nginx.conf.template /docker-entrypoint.d/default.conf.template
 
 EXPOSE ${PORT}
 
