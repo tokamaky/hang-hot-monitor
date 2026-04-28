@@ -24,10 +24,6 @@ import { relativeTime } from './utils/relativeTime';
 import { useI18n } from './i18n/index.tsx';
 import Login from './pages/Login';
 
-interface LoginProps {
-  onSuccess: (token: string, user: CurrentUser) => void;
-}
-
 function calcHeatScore(h: Hotspot): number {
   const likes = h.likeCount ?? 0;
   const retweets = h.retweetCount ?? 0;
