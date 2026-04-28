@@ -3,11 +3,11 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+ENV DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder
+
 # 复制 package 文件
 COPY package*.json ./
 COPY prisma ./prisma/
-
-ENV DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder
 
 # 安装依赖（包括 devDependencies 用于构建）
 RUN npm ci
