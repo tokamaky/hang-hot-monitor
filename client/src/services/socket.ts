@@ -1,13 +1,15 @@
 import { io, Socket } from 'socket.io-client';
 
+const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 let socket: Socket | null = null;
 let socketPromise: Promise<Socket> | null = null;
 
 async function createSocket(): Promise<Socket> {
   return new Promise((resolve) => {
-    const newSocket = io(window.location.origin, {
+    const newSocket = io(SOCKET_URL, {
       path: '/socket.io',
-      transports: ['polling'],
+      transports: ['websocket', 'polling'],
       reconnection: false,
       timeout: 10000
     });
