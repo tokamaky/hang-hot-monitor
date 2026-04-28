@@ -25,6 +25,9 @@ RUN ls -la /app/dist && test -f /app/dist/index.html
 # Production image - nginx to serve static files
 FROM nginx:alpine AS production
 
+
+ENV PORT=5173
+
 # Copy built files and nginx config template (will be processed by envsubst)
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf.template /etc/nginx/conf.d/default.conf.template
