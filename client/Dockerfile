@@ -41,5 +41,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
-# Start nginx with env substitution
-CMD ["sh", "-c", "sed 's/__PORT__/'\"$PORT\"'/g; s/__VITE_API_URL__/\"$VITE_API_URL\"/g' /etc/nginx/conf.d/nginx.conf > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+# Start nginx with env substitution (strip trailing slash from URL)
+CMD ["sh", "-c", "API_URL=$(echo $VITE_API_URL | sed 's:/*$::'); sed 's/__PORT__/'\"$PORT\"'/g; s/__VITE_API_URL__/'$API_URL'/g' /etc/nginx/conf.d/nginx.conf > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
