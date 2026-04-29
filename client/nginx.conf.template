@@ -27,8 +27,9 @@ server {
     }
 
     # Socket.io proxy
+    # NOTE: VITE_API_URL must NOT end with a trailing slash (e.g., https://example.com not https://example.com/)
     location /socket.io/ {
-        proxy_pass __VITE_API_URL__socket.io/;
+        proxy_pass __VITE_API_URL__/socket.io/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
