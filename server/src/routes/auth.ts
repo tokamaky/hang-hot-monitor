@@ -126,7 +126,7 @@ router.get('/github/callback', async (req, res) => {
 
     // Redirect back to frontend with access token in URL
     res.redirect(
-      `${process.env.CLIENT_URL}/auth/callback?token=${accessToken}`
+      `${process.env.CLIENT_URL}/?token=${accessToken}`
     );
   } catch (error) {
     console.error('GitHub OAuth error:', error);
