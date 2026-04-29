@@ -3,6 +3,10 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# 接收构建时环境变量
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 # Copy package files
 COPY package.json package-lock.json* ./
 
