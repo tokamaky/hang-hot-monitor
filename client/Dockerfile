@@ -1,4 +1,4 @@
-ARG VITE_API_URL
+ARG ARG VITE_API_URL=https://backend-production-2871.up.railway.app
 
 # Frontend Dockerfile
 FROM node:20-alpine AS builder
