@@ -21,7 +21,7 @@
 
 ## 🌐 Live Demo
 
-👉 **[Try it on Railway](https://hang-hot-monitor.up.railway.app)** *(replace with your actual URL)*
+👉 **[Try it on Railway]([https://hang-hot-monitor.up.railway.app](https://frontend-production-bbae.up.railway.app/))** *(replace with your actual URL)*
 
 > Add a keyword like `Claude Sonnet 4.7` or `OpenAI GPT-5` and watch hotspots stream in across the dashboard in real time. The page updates without a refresh — that's WebSocket + Prisma working in concert.
 
