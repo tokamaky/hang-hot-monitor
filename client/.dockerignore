@@ -39,3 +39,6 @@ README.md
 # Docker
 docker-compose*.yml
 .dockerignore
+Dockerfile
+docker-entrypoint.sh
+nginx.conf

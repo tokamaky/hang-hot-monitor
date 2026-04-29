@@ -1,45 +1,39 @@
-# Build stage
-FROM node:20-alpine AS builder
+# Stage 1: Build the application
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
-COPY tsconfig*.json ./
-COPY vite.config.ts ./
-COPY index.html ./
-COPY eslint.config.js ./
+COPY package.json package-lock.json* ./
 
 # Install dependencies
 RUN npm ci
 
 # Copy source code
-COPY src ./src
+COPY . .
 
 # Build the application
 RUN npm run build
 
-# Production stage
+# Stage 2: Serve with nginx
 FROM nginx:alpine
 
-# Remove default nginx config
-RUN rm /etc/nginx/conf.d/default.conf
+# Install sed for variable substitution
+RUN apk add --no-cache bash sed
 
 # Copy custom nginx config
-COPY nginx.conf.template /etc/nginx/conf.d/nginx.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy built files from builder stage
+# Copy built assets from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Set default PORT if not provided (Railway uses 8080)
-ENV PORT=${PORT:-8080}
+# Copy entrypoint script
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
-# Expose port
+# Expose port 8080 (Railway default)
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
-
-# Start nginx with env substitution
-CMD ["sh", "-c", "sed -e 's/__PORT__/'$PORT'/g' -e 's|__VITE_API_URL__|'$VITE_API_URL'|g' /etc/nginx/conf.d/nginx.conf > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+# Use entrypoint to substitute env vars at runtime
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["nginx", "-g", "daemon off;"]
